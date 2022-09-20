@@ -10,7 +10,7 @@ const sequelize = new Sequelize('database', 'user', 'password', {
 	storage: 'database.sqlite',
 });
 
-const tempRoles = sequelize.define('tags', {
+const tempRoles = sequelize.define('tempRoles', {
 	id: {
 		type: DataTypes.INTEGER,
 		autoIncrement: true,
@@ -102,7 +102,7 @@ const init = async (interaction, client) => {
 
 	try {
 		// equivalent to: INSERT INTO tags (name, description, username) values (?, ?, ?);
-		const tag = await tempRoles.create({
+		const tempRole = await tempRoles.create({
 			userId: member.id,
 			userName: member.nickname,
 			roleId: role.id,
