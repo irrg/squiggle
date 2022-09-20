@@ -1,23 +1,24 @@
-const { REST } = require('@discordjs/rest')
+// DiscordJS
+const { REST } = require('@discordjs/rest');
 const { Client, Intents } = require('discord.js')
-const { Routes } = require('discord-api-types/v9')
+const { Routes } = require('discord-api-types/v9');
 const client = new Client({ intents: [Intents.FLAGS.GUILDS] })
 
-const fs = require('fs')
-const path = require('path')
+const fs = require('fs');
+const path = require('path');
 
-let commandTmp = []
-let commands = []
+let commandTmp = [];
+let commands = [];
 
 const { token } = require('./config.json');
 
 client.once('ready', () => {
-    console.log('Bot Ready!')
+    console.log('Bot Ready!');
 
-    let commandsFiles = fs.readdirSync(path.join(__dirname, './commands'))
+    let commandsFiles = fs.readdirSync(path.join(__dirname, './commands'));
 
     commandsFiles.forEach((file, i) => {
-        commandTmp[i] = require('./commands/' + file)
+        commandTmp[i] = require('./commands/' + file);
         commands = [
             ...commands,
             {
@@ -26,7 +27,7 @@ client.once('ready', () => {
                 init: commandTmp[i].init,
                 options: commandTmp[i].options,
             },
-        ]
+        ];
     })
 
     const rest = new REST({ version: '9' }).setToken(token)
@@ -34,16 +35,19 @@ client.once('ready', () => {
         body: commands,
     })
         .then(() => {
-            console.log('Commands registered!')
+            console.log('Commands registered!');
         })
-        .catch(console.error)
+        .catch(console.error);
 })
 
 client.on('interactionCreate', async interaction => {
-    if (!interaction.isCommand()) return
-    const { commandName } = interaction
-    const selectedCommand = commands.find(c => commandName === c.name)
-    selectedCommand.init(interaction, client)
+    if (!interaction.isCommand()) {
+        return;
+    }
+    const { commandName } = interaction;
+    const selectedCommand = commands.find(c => commandName === c.name);
+    selectedCommand.init(interaction, client);
 })
 
-client.login(token)
+// run
+client.login(token);
