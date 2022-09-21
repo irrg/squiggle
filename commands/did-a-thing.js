@@ -2,31 +2,14 @@
 const DiscordJS = require('discord.js');
 const STRING = DiscordJS.Constants.ApplicationCommandOptionTypes.STRING;
 // Sequelize
-const { DataTypes, Sequelize } = require('sequelize');
+const { Sequelize } = require('sequelize');
 const sequelize = new Sequelize('database', 'user', 'password', {
 	host: 'localhost',
 	dialect: 'sqlite',
 	logging: false,
 	storage: 'database.sqlite',
 });
-
-const tempRoles = sequelize.define('tempRoles', {
-	id: {
-		type: DataTypes.INTEGER,
-		autoIncrement: true,
-		primaryKey: true
-	},
-	userName: DataTypes.STRING,
-	userId: DataTypes.INTEGER,
-	roleName: DataTypes.STRING,
-	roleId: DataTypes.INTEGER,
-	expirationTime: {
-		type: DataTypes.DATE,
-		defaultValue: DataTypes.NOW,
-	}
-
-});
-
+const TempRole = require(`${__appRoot}/models/tempRole`)(sequelize);
 const description = 'Share that you did a thing!';
 const things = [
 	{ 
@@ -98,11 +81,11 @@ const init = async (interaction, client) => {
 	const role = member.guild.roles.cache.find(({ name }) => name === roleName);
 	const expirationDateTime = new Date(new Date().getTime() + (24 * 60 * 60 * 1000));
 
-    await tempRoles.sync();
+    await TempRole.sync();
 
 	try {
 		// equivalent to: INSERT INTO tags (name, description, username) values (?, ?, ?);
-		const tempRole = await tempRoles.create({
+		const tempRole = await TempRole.create({
 			userId: member.id,
 			userName: member.nickname,
 			roleId: role.id,
