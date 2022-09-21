@@ -32,7 +32,9 @@ const init = async (interaction, client, sequelize) => {
 	const expirationDateTime = new Date(new Date().getTime() + (24 * 60 * 60 * 1000));
 
 	const TempRole = require(`${__appRoot}/models/tempRole`)(sequelize);
-    await TempRole.sync(/* { force: true } */);
+
+	await interaction.deferReply();
+	await TempRole.sync(/* { force: true } */);
 
 	try {
 		const tempRole = await TempRole.create({
@@ -58,7 +60,7 @@ const init = async (interaction, client, sequelize) => {
 			.setDescription(caption)
 			.setTimestamp();
 			
-		return interaction.reply({ embeds: [embed] });
+		return interaction.editReply({ embeds: [embed] });
 	}
 	catch (error) {
 		console.log(error);

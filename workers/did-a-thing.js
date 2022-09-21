@@ -17,8 +17,6 @@ const run = async (client, sequelize) => {
 					}
         });
 
-
-
 				tempRoles.forEach(async (tempRole) => {
 					const guild = client.guilds.cache.get(tempRole.guildId);
 					const role = guild.roles.cache.get(tempRole.roleId);
