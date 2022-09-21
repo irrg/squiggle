@@ -32,12 +32,13 @@ const init = async (interaction, client, sequelize) => {
 	const expirationDateTime = new Date(new Date().getTime() + (24 * 60 * 60 * 1000));
 
 	const TempRole = require(`${__appRoot}/models/tempRole`)(sequelize);
-    await TempRole.sync();
+    await TempRole.sync(/* { force: true } */);
 
 	try {
 		const tempRole = await TempRole.create({
-			userId: member.id,
-			userName: member.nickname,
+			guildId: member.guild.id,
+			memberId: member.id,
+			memberName: member.nickname,
 			roleId: role.id,
 			roleName: role.name,
 			expirationTime: expirationDateTime,

@@ -7,10 +7,11 @@ module.exports = (sequelize) => {
 			autoIncrement: true,
 			primaryKey: true
 		},
-		userName: DataTypes.STRING,
-		userId: DataTypes.INTEGER,
+		guildId: DataTypes.STRING,
+		memberName: DataTypes.STRING,
+		memberId: DataTypes.STRING,
 		roleName: DataTypes.STRING,
-		roleId: DataTypes.INTEGER,
+		roleId: DataTypes.STRING,
 		expirationTime: {
 			type: DataTypes.DATE,
 			defaultValue: DataTypes.NOW,
