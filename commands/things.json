@@ -1,0 +1,42 @@
+[
+	{ 
+		"name": "adulting", 
+		"role": "People who adulted THE BEJEEZUS out of life today"
+	},
+	{ 
+		"name":	"businessing",
+		"role": "People who did a SRS BSNS today"
+	},
+	{
+		"name": "coding",
+		"role": "People who wrangled the EVERLIVIN\" BINARY out of some code today"
+	},
+	{ 
+		"name": "editing",
+		"role": "People who edited the EVERLOVIN SHIT out of some words today"
+	},
+	{ 
+		"name": "exercising", 
+		"role": "People who exercised the METRIC METERS out of THEIR BODIES today"
+	},
+	{ 
+		"name": "GMing",
+		"role": "People who ran THE GOSHDARN XP out of some players today"
+	},
+	{ 
+		"name": "making pretty",
+		"role": "People who made things SO FUCKIN PRETTY today"
+	},
+	{ 
+		"name": "reading",
+		"role": "People who READ LIKE WORDS WERE GOING OUT OF STYLE today"
+	},
+	{ 
+		"name": "thinking",
+		"role": "People who thought about shit REALLY HARD today"
+	},
+	{ 
+		"name": "writing", 
+		"role": "People who wrote THE ABSOLUTE SHIT out of some words today"
+	}
+]
