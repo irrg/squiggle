@@ -6,14 +6,14 @@ const description = 'Share that you did a thing!';
 const things = require(`${__appRoot}/did-a-thing.json`);
 const options = [
     {
-        name: 'thing',
-        description: 'Thing',
-        required: true,
-        type: STRING,
-				choices: things.map(({ name }) => ({ 
-						name, 
-						value: name,
-					}))
+			name: 'thing',
+			description: 'Thing',
+			required: true,
+			type: STRING,
+		choices: things.map(({ name }) => ({ 
+			name, 
+			value: name,
+		}))
     },
 		{
 			name: 'caption',
