@@ -19,6 +19,7 @@ const colors = require('colors');
 const fs = require('fs');
 const path = require('path');
 
+let workerTmp = [];
 let commandTmp = [];
 let commands = [];
 
@@ -41,6 +42,17 @@ client.once('ready', () => {
 			},
 		];
 	})
+
+	let workersFiles = fs.readdirSync(path.join(__dirname, './workers'));
+
+	commandsFiles.forEach(async (file, i) => {
+		workerTmp[i] = require('./workers/' + file);
+		setInterval(() => { workerTmp[i].run(client, sequelize); }, workerTmp[i].interval);
+	});
+	
+	if (workersFiles.length > 0) {
+		console.log('✅ Workers registered!'.gray);
+	}
 
 	rest.put(
 		Routes.applicationCommands(client.application.id), 
