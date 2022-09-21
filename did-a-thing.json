@@ -1,42 +1,52 @@
 [
 	{ 
 		"name": "adulting", 
-		"role": "People who adulted THE BEJEEZUS out of life today"
+		"role": "People who adulted THE BEJEEZUS out of life today",
+		"color": "#925cb1"
 	},
 	{ 
 		"name":	"businessing",
-		"role": "People who did a SRS BSNS today"
+		"role": "People who did a SRS BSNS today",
+		"color": "#448952"
 	},
 	{
 		"name": "coding",
-		"role": "People who wrangled the EVERLIVIN\" BINARY out of some code today"
+		"role": "People who wrangled the EVERLIVIN\" BINARY out of some code today",
+		"color": "#8d3529"
 	},
 	{ 
 		"name": "editing",
-		"role": "People who edited the EVERLOVIN SHIT out of some words today"
+		"role": "People who edited the EVERLOVIN SHIT out of some words today",
+		"color": "#d65745"
 	},
 	{ 
 		"name": "exercising", 
-		"role": "People who exercised the METRIC METERS out of THEIR BODIES today"
+		"role": "People who exercised the METRIC METERS out of THEIR BODIES today",
+		"color": "#7b4fd6"
 	},
 	{ 
 		"name": "GMing",
-		"role": "People who ran THE GOSHDARN XP out of some players today"
+		"role": "People who ran THE GOSHDARN XP out of some players today",
+		"color": "#5296d5"
 	},
 	{ 
 		"name": "making pretty",
-		"role": "People who made things SO FUCKIN PRETTY today"
+		"role": "People who made things SO FUCKIN PRETTY today",
+		"color": "#d63864"
 	},
 	{ 
 		"name": "reading",
-		"role": "People who READ LIKE WORDS WERE GOING OUT OF STYLE today"
+		"role": "People who READ LIKE WORDS WERE GOING OUT OF STYLE today",
+		"color": "#d8833b"
 	},
 	{ 
 		"name": "thinking",
-		"role": "People who thought about shit REALLY HARD today"
+		"role": "People who thought about shit REALLY HARD today",
+		"color": "#667c89"
 	},
 	{ 
 		"name": "writing", 
-		"role": "People who wrote THE ABSOLUTE SHIT out of some words today"
+		"role": "People who wrote THE ABSOLUTE SHIT out of some words today",
+		"color": "#65c97a"
 	}
 ]

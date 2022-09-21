@@ -1,6 +1,6 @@
 // Discord.js
-const DiscordJS = require('discord.js');
-const STRING = DiscordJS.Constants.ApplicationCommandOptionTypes.STRING;
+const { Constants, MessageEmbed } = require('discord.js');
+const STRING = Constants.ApplicationCommandOptionTypes.STRING;
 
 const description = 'Share that you did a thing!';
 const things = require(`${__appRoot}/did-a-thing.json`);
@@ -10,10 +10,10 @@ const options = [
 			description: 'Thing',
 			required: true,
 			type: STRING,
-		choices: things.map(({ name }) => ({ 
-			name, 
-			value: name,
-		}))
+			choices: things.map(({ name }) => ({ 
+				name, 
+				value: name,
+			}))
     },
 		{
 			name: 'caption',
@@ -25,17 +25,16 @@ const options = [
 
 const init = async (interaction, client, sequelize) => {
 	const { member } = interaction;
-	const thingName =  interaction.options.getString('thing');
-	const thingCaption = interaction.options.getString('caption');
-	const roleName = things.find(({ name }) => name === thingName).role;
-	const role = member.guild.roles.cache.find(({ name }) => name === roleName);
+	const thing =  interaction.options.getString('thing');
+	const caption = interaction.options.getString('caption');
+	const thingObject = things.find(({ name }) => name === thing);
+	const role = member.guild.roles.cache.find(({ name }) => name === thingObject.role);
 	const expirationDateTime = new Date(new Date().getTime() + (24 * 60 * 60 * 1000));
 
 	const TempRole = require(`${__appRoot}/models/tempRole`)(sequelize);
     await TempRole.sync();
 
 	try {
-		// equivalent to: INSERT INTO tags (name, description, username) values (?, ?, ?);
 		const tempRole = await TempRole.create({
 			userId: member.id,
 			userName: member.nickname,
@@ -45,14 +44,23 @@ const init = async (interaction, client, sequelize) => {
 		});
 
 		member.roles.add(role);
-		
-		return interaction.reply(`TempRole ${role.name} assigned to user ${member.nickname} for 24 hours.`);
+
+		// console.log(member);
+
+		const embed = new MessageEmbed()
+			.setTitle(`${member.nickname} ${thingObject.role.replace(/People who /g, '')}`)
+			.setColor(thingObject.color)
+			.setAuthor({ 
+				name: member.nickname, 
+				iconURL: member.displayAvatarURL(),
+			})
+			.setDescription(caption)
+			.setTimestamp();
+			
+		return interaction.reply({ embeds: [embed] });
 	}
 	catch (error) {
-		if (error.name === 'SequelizeUniqueConstraintError') {
-			return interaction.reply('That tag already exists.');
-		}
-
+		console.log(error);
 		return interaction.reply('Something went wrong with storing a tempRole.');
 	}
 }
