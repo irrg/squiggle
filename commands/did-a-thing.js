@@ -1,59 +1,9 @@
 // Discord.js
 const DiscordJS = require('discord.js');
 const STRING = DiscordJS.Constants.ApplicationCommandOptionTypes.STRING;
-// Sequelize
-const { Sequelize } = require('sequelize');
-const sequelize = new Sequelize('database', 'user', 'password', {
-	host: 'localhost',
-	dialect: 'sqlite',
-	logging: false,
-	storage: 'database.sqlite',
-});
-const TempRole = require(`${__appRoot}/models/tempRole`)(sequelize);
-const description = 'Share that you did a thing!';
-const things = [
-	{ 
-		name: 'adulting', 
-		role: 'People who adulted THE BEJEEZUS out of life today',
-	},
-	{ 
-		name:	'businessing',
-		role: 'People who did a SRS BSNS today',
-	},
-	{
-		name: 'coding',
-		role: 'People who wrangled the EVERLIVIN\' BINARY out of some code today',
-	},
-	{ 
-		name: 'editing',
-		role: 'People who edited the EVERLOVIN SHIT out of some words today',
-	},
-	{ 
-		name: 'exercising', 
-		role: 'People who exercised the METRIC METERS out of THEIR BODIES today',
-	},
-	{ 
-		name: 'GMing',
-		role: 'People who ran THE GOSHDARN XP out of some players today',
-	},
-	{ 
-		name: 'making pretty',
-		role: 'People who made things SO FUCKIN PRETTY today',
-	},
-	{ 
-		name: 'reading',
-		role: 'People who READ LIKE WORDS WERE GOING OUT OF STYLE today',
-	},
-	{ 
-		name: 'thinking',
-		role: 'People who thought about shit REALLY HARD today',
-	},
-	{ 
-		name: 'writing', 
-		role: 'People who wrote THE ABSOLUTE SHIT out of some words today',
-	},
-];
 
+const description = 'Share that you did a thing!';
+const things = require(`${__appRoot}/did-a-thing.json`);
 const options = [
     {
         name: 'thing',
@@ -73,7 +23,7 @@ const options = [
 		}
 ];
 
-const init = async (interaction, client) => {
+const init = async (interaction, client, sequelize) => {
 	const { member } = interaction;
 	const thingName =  interaction.options.getString('thing');
 	const thingCaption = interaction.options.getString('caption');
@@ -81,6 +31,7 @@ const init = async (interaction, client) => {
 	const role = member.guild.roles.cache.find(({ name }) => name === roleName);
 	const expirationDateTime = new Date(new Date().getTime() + (24 * 60 * 60 * 1000));
 
+	const TempRole = require(`${__appRoot}/models/tempRole`)(sequelize);
     await TempRole.sync();
 
 	try {

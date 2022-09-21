@@ -1,4 +1,11 @@
-const colors = require('colors');
+// Sequelize
+const { Sequelize } = require('sequelize');
+const sequelize = new Sequelize('database', 'user', 'password', {
+	host: 'localhost',
+	dialect: 'sqlite',
+	logging: false,
+	storage: 'database.sqlite',
+});
 
 // DiscordJS
 const { token } = require('./config.json');
@@ -8,6 +15,7 @@ const { Routes } = require('discord-api-types/v9');
 const client = new Client({ intents: [Intents.FLAGS.GUILDS] })
 const rest = new REST({ version: '9' }).setToken(token);
 
+const colors = require('colors');
 const fs = require('fs');
 const path = require('path');
 
@@ -50,7 +58,7 @@ client.on('interactionCreate', async interaction => {
 
 	const { commandName } = interaction;
 	const selectedCommand = commands.find(c => commandName === c.name);
-	selectedCommand.init(interaction, client);
+	selectedCommand.init(interaction, client, sequelize);
 });
 
 // run
