@@ -58,7 +58,7 @@ const init = async (interaction, client, sequelize) => {
 			.setDescription(caption)
 			.setTimestamp();
 		
-		const reply = await interaction.editReply({ embeds: [embed] })
+		const reply = await interaction.editReply({ embeds: [embed] });
 		reply.react('🙌');
 
 		return reply;

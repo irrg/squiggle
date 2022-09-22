@@ -1,7 +1,7 @@
 // DiscordJS
 const { token } = require('./config.json');
 const { REST } = require('@discordjs/rest');
-const { Client, Intents } = require('discord.js')
+const { Client, Intents, MessageEmbed } = require('discord.js')
 const { Routes } = require('discord-api-types/v9');
 const client = new Client({ intents: [
 	Intents.FLAGS.GUILDS,
@@ -83,17 +83,14 @@ client.on('interactionCreate', async interaction => {
 });
 
 client.on('messageReactionAdd', async (reaction, user) => {
-	// await interaction.deferReply();
-
 	reactionRoles.forEach(async (reactionRole) => {
 		if (
 			reaction.emoji.name === reactionRole.emojiName && 
 			reaction.count === reactionRole.threshold
 		) {
 			const { guild } = reaction.message;
-			console.log('wwttffff', guild.roles.cache);
 			const role = guild.roles.cache.find((role) => role.name === reactionRole.roleName); 
-			const member = guild.members.cache.find(member => member.id === user.id); //find the member who reacted (because user and member are seperate things)
+			const member = guild.members.cache.find(member => member.id === reaction.message.author.id); 
 			const expirationDateTime = new Date(new Date().getTime() + (24 * 60 * 60 * 1000));
 
 			try {
@@ -108,23 +105,19 @@ client.on('messageReactionAdd', async (reaction, user) => {
 		
 				member.roles.add(role);
 		
-				// const embed = new MessageEmbed()
-				// 	.setTitle(`${member.nickname} was determined to be ${reactionRole.role.replace(/People who are /g, '')}`)
-				// 	.setColor(reactionRole.color)
-				// 	.setAuthor({ 
-				// 		name: member.nickname, 
-				// 		iconURL: member.displayAvatarURL(),
-				// 	})
-				// 	.setTimestamp();
-			
-				// const reply = await interaction.editReply({ embeds: [embed] })
-				// reply.react('🙌');
-	
-				// return reply;
-				console.log('YAY');
+				const embed = new MessageEmbed()
+					.setTitle(`${member.nickname} was determined to be ${reactionRole.roleName.replace(/People who are /g, '')}`)
+					.setColor(reactionRole.color)
+					.setAuthor({ 
+						name: member.nickname, 
+						iconURL: member.displayAvatarURL(),
+					})
+					.setTimestamp();
+
+				await reaction.message.channel.send({ embeds: [embed] });
 			} catch (error) {
 				console.log(error);
-				// return interaction.reply('Something went wrong with storing a tempRole.');
+				await reaction.message.channel.send('Something went wrong with storing a tempRole.');
 			}			
 		}
 	});
