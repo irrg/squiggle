@@ -48,8 +48,6 @@ const init = async (interaction, client, sequelize) => {
 
 		member.roles.add(role);
 
-		// console.log(member);
-
 		const embed = new MessageEmbed()
 			.setTitle(`${member.nickname} ${thingObject.role.replace(/People who /g, '')}`)
 			.setColor(thingObject.color)
@@ -59,8 +57,11 @@ const init = async (interaction, client, sequelize) => {
 			})
 			.setDescription(caption)
 			.setTimestamp();
-			
-		return interaction.editReply({ embeds: [embed] });
+		
+		const reply = await interaction.editReply({ embeds: [embed] })
+		reply.react('🙌');
+
+		return reply;
 	}
 	catch (error) {
 		console.log(error);
