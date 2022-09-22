@@ -34,7 +34,7 @@ const init = async (interaction, client, sequelize) => {
 	const TempRole = require(`${__appRoot}/models/tempRole`)(sequelize);
 
 	await interaction.deferReply();
-	await TempRole.sync(/* { force: true } */);
+	await TempRole.sync();
 
 	try {
 		const tempRole = await TempRole.create({

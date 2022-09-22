@@ -1,12 +1,3 @@
-// Sequelize
-const { Sequelize } = require('sequelize');
-const sequelize = new Sequelize('database', 'user', 'password', {
-	host: 'localhost',
-	dialect: 'sqlite',
-	logging: false,
-	storage: 'database.sqlite',
-});
-
 // DiscordJS
 const { token } = require('./config.json');
 const { REST } = require('@discordjs/rest');
@@ -15,12 +6,15 @@ const { Routes } = require('discord-api-types/v9');
 const client = new Client({ intents: [
 	Intents.FLAGS.GUILDS,
 	Intents.FLAGS.GUILD_MEMBERS,
+	Intents.FLAGS.GUILD_MESSAGES,
+	Intents.FLAGS.GUILD_MESSAGE_REACTIONS,
 ] });
 const rest = new REST({ version: '9' }).setToken(token);
 
 const colors = require('colors');
 const fs = require('fs');
 const path = require('path');
+const reactionRoles = require('./reaction-roles.json');
 
 let workerTmp = [];
 let commandTmp = [];
@@ -28,7 +22,19 @@ let commands = [];
 
 global.__appRoot = path.resolve(__dirname);
 
-client.once('ready', () => {
+// Sequelize
+const { Sequelize } = require('sequelize');
+const sequelize = new Sequelize('database', 'user', 'password', {
+	host: 'localhost',
+	dialect: 'sqlite',
+	logging: false,
+	storage: 'database.sqlite',
+});
+const TempRole = require(`${__appRoot}/models/tempRole`)(sequelize);
+
+client.once('ready', async () => {
+	await TempRole.sync(/* { force: true } */);
+
 	console.log('😃 ' + '~~Squiggle~~'.red.bold + ' is online!'.red);
 
 	let commandsFiles = fs.readdirSync(path.join(__dirname, './commands'));
@@ -74,6 +80,54 @@ client.on('interactionCreate', async interaction => {
 	const { commandName } = interaction;
 	const selectedCommand = commands.find(c => commandName === c.name);
 	selectedCommand.init(interaction, client, sequelize);
+});
+
+client.on('messageReactionAdd', async (reaction, user) => {
+	// await interaction.deferReply();
+
+	reactionRoles.forEach(async (reactionRole) => {
+		if (
+			reaction.emoji.name === reactionRole.emojiName && 
+			reaction.count === reactionRole.threshold
+		) {
+			const { guild } = reaction.message;
+			console.log('wwttffff', guild.roles.cache);
+			const role = guild.roles.cache.find((role) => role.name === reactionRole.roleName); 
+			const member = guild.members.cache.find(member => member.id === user.id); //find the member who reacted (because user and member are seperate things)
+			const expirationDateTime = new Date(new Date().getTime() + (24 * 60 * 60 * 1000));
+
+			try {
+				const tempRole = await TempRole.create({
+					guildId: guild.id,
+					memberId: member.id,
+					memberName: member.nickname,
+					roleId: role.id,
+					roleName: role.name,
+					expirationTime: expirationDateTime,
+				});
+		
+				member.roles.add(role);
+		
+				// const embed = new MessageEmbed()
+				// 	.setTitle(`${member.nickname} was determined to be ${reactionRole.role.replace(/People who are /g, '')}`)
+				// 	.setColor(reactionRole.color)
+				// 	.setAuthor({ 
+				// 		name: member.nickname, 
+				// 		iconURL: member.displayAvatarURL(),
+				// 	})
+				// 	.setTimestamp();
+			
+				// const reply = await interaction.editReply({ embeds: [embed] })
+				// reply.react('🙌');
+	
+				// return reply;
+				console.log('YAY');
+			} catch (error) {
+				console.log(error);
+				// return interaction.reply('Something went wrong with storing a tempRole.');
+			}			
+		}
+	});
 });
 
 // run
