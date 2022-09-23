@@ -36,11 +36,13 @@ const init = async (interaction, client, sequelize) => {
 	await interaction.deferReply();
 	await TempRole.sync();
 
+	const memberName = member.nickname || member.user.username;
+
 	try {
 		const tempRole = await TempRole.create({
 			guildId: member.guild.id,
 			memberId: member.id,
-			memberName: member.nickname,
+			memberName,
 			roleId: role.id,
 			roleName: role.name,
 			expirationTime: expirationDateTime,
@@ -49,10 +51,10 @@ const init = async (interaction, client, sequelize) => {
 		member.roles.add(role);
 
 		const embed = new MessageEmbed()
-			.setTitle(`${member.nickname} ${thingObject.role.replace(/People who /g, '')}`)
+			.setTitle(`${memberName} ${thingObject.role.replace(/People who /g, '')}`)
 			.setColor(thingObject.color)
 			.setAuthor({ 
-				name: member.nickname, 
+				name: memberName, 
 				iconURL: member.displayAvatarURL(),
 			})
 			.setDescription(caption)
