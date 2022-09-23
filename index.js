@@ -1,5 +1,5 @@
 // DiscordJS
-const { token } = require('./config.json');
+const { token } = require('./config/discord.json');
 const { REST } = require('@discordjs/rest');
 const { Client, Intents, MessageEmbed } = require('discord.js')
 const { Routes } = require('discord-api-types/v9');
@@ -14,7 +14,7 @@ const rest = new REST({ version: '9' }).setToken(token);
 const colors = require('colors');
 const fs = require('fs');
 const path = require('path');
-const reactionRoles = require('./reaction-roles.json');
+const reactionRoles = require('./config/reaction-roles.json');
 
 let workerTmp = [];
 let commandTmp = [];
