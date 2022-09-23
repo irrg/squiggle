@@ -3,7 +3,7 @@ const { Constants, MessageEmbed } = require('discord.js');
 const STRING = Constants.ApplicationCommandOptionTypes.STRING;
 
 const description = 'Share that you did a thing!';
-const things = require(`${__appRoot}/config/did-a-thing.json`);
+const things = require(`${__appRoot}/did-a-thing.json`);
 const options = [
     {
 			name: 'thing',

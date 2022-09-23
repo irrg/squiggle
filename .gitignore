@@ -4,4 +4,5 @@ dist
 **/.DS_Store
 config.json
 *.sqlite
-config/*.json
+did-a-thing.json
+reaction-roles.json
