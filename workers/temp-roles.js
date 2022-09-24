@@ -1,6 +1,6 @@
 const { QueryTypes, Op } = require('sequelize');
 
-const run = async (client, sequelize) => {
+const handler = async (client, sequelize) => {
 	const TempRole = require(`${__appRoot}/models/tempRole`)(sequelize);
     await TempRole.sync();
 
@@ -38,6 +38,6 @@ const run = async (client, sequelize) => {
 }
 
 module.exports = { 
-	run, 
+	handler, 
     interval: 10000,
 };

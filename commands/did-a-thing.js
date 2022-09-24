@@ -2,28 +2,32 @@
 const { Constants, MessageEmbed } = require('discord.js');
 const STRING = Constants.ApplicationCommandOptionTypes.STRING;
 
-const description = 'Share that you did a thing!';
 const things = require(`${__appRoot}/did-a-thing.json`);
-const options = [
-    {
-			name: 'thing',
-			description: 'Thing',
-			required: true,
-			type: STRING,
-			choices: things.map(({ name }) => ({ 
-				name, 
-				value: name,
-			}))
-    },
+
+const props = { 
+	name: 'did-a-thing',
+	description: 'Share that you did a thing!',
+	options: [
+		{
+				name: 'thing',
+				description: 'Thing',
+				required: true,
+				type: STRING,
+				choices: things.map(({ name }) => ({ 
+					name, 
+					value: name,
+				}))
+		},
 		{
 			name: 'caption',
 			description: 'Describe what you did (optional)',
 			type: STRING,
 			required: true,
 		}
-];
+	]
+};
 
-const init = async (interaction, client, sequelize) => {
+const handler = async (interaction, client, sequelize) => {
 	const { member } = interaction;
 	const thing =  interaction.options.getString('thing');
 	const caption = interaction.options.getString('caption');
@@ -72,7 +76,6 @@ const init = async (interaction, client, sequelize) => {
 }
 
 module.exports = { 
-	init, 
-	description, 
-	options,
+	handler, 
+	props,
 };
