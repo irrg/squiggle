@@ -1,5 +1,5 @@
 // DiscordJS
-const { token } = require('./config.json');
+const { env, token } = require('./config.json');
 const { REST } = require('@discordjs/rest');
 const { Client, Intents, MessageEmbed } = require('discord.js')
 const { Routes } = require('discord-api-types/v9');
@@ -35,7 +35,7 @@ const TempRole = require(`${__appRoot}/models/tempRole`)(sequelize);
 client.once('ready', async () => {
 	await TempRole.sync(/* { force: true } */);
 
-	console.log('😃 ' + '~~Squiggle~~'.red.bold + ' is online!'.red);
+	console.log('😃 ' + `~~${env}Squiggle~~`.red.bold + ' is online!'.red);
 
 	let commandsFiles = fs.readdirSync(path.join(__dirname, './commands'));
 
@@ -54,7 +54,7 @@ client.once('ready', async () => {
 
 	let workersFiles = fs.readdirSync(path.join(__dirname, './workers'));
 
-	commandsFiles.forEach(async (file, i) => {
+	workersFiles.forEach(async (file, i) => {
 		workerTmp[i] = require('./workers/' + file);
 		setInterval(() => { workerTmp[i].run(client, sequelize); }, workerTmp[i].interval);
 	});
