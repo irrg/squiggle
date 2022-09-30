@@ -91,25 +91,27 @@ client.on('messageReactionAdd', async (reaction, user) => {
 			const { guild } = reaction.message;
 			const role = guild.roles.cache.find((role) => role.name === reactionRole.roleName); 
 			const member = guild.members.cache.find(member => member.id === reaction.message.author.id); 
-			const expirationDateTime = new Date(new Date().getTime() + (24 * 60 * 60 * 1000));
+			const expirationTime = new Date(new Date().getTime() + (24 * 60 * 60 * 1000));
+
+			const memberName = member.nickname || member.user.username;
 
 			try {
 				const tempRole = await TempRole.create({
 					guildId: guild.id,
 					memberId: member.id,
-					memberName: member.nickname,
+					memberName,
 					roleId: role.id,
 					roleName: role.name,
-					expirationTime: expirationDateTime,
+					expirationTime,
 				});
 		
 				member.roles.add(role);
 		
 				const embed = new MessageEmbed()
-					.setTitle(`${member.nickname} was determined to be ${reactionRole.roleName.replace(/People who are /g, '')}`)
+					.setTitle(`${memberName} was determined to be ${reactionRole.roleName.replace(/People who are /g, '')}`)
 					.setColor(reactionRole.color)
 					.setAuthor({ 
-						name: member.nickname, 
+						name: memberName, 
 						iconURL: member.displayAvatarURL(),
 					})
 					.setTimestamp();
