@@ -1,0 +1,16 @@
+{ 
+	"reactions": [
+		{
+			"emojiName": "TheBest",
+			"roleName": "People who are THE ABSOLUTE BEST",
+			"threshold": 4,
+			"color": "#eac645"
+		},
+		{
+			"emojiName": "TheWorst",
+			"roleName": "People who are THE ABSOLUTE WORST",
+			"threshold": 4,
+			"color": "#743e13"
+		}
+	]
+}
