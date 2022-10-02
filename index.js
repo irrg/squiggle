@@ -1,56 +1,134 @@
-const { REST } = require('@discordjs/rest')
-const { Client, Intents } = require('discord.js')
-const { Routes } = require('discord-api-types/v9')
-const client = new Client({ intents: [Intents.FLAGS.GUILDS] })
+// DiscordJS
+const { 
+    env, 
+    token, 
+    namePrefix,
+    commandPrefix,
+} = require('./config.json');
+const { REST } = require('@discordjs/rest');
+const { Client, Intents, MessageEmbed } = require('discord.js')
+const { Routes } = require('discord-api-types/v9');
+const client = new Client({ intents: [
+	Intents.FLAGS.GUILDS,
+	Intents.FLAGS.GUILD_MEMBERS,
+	Intents.FLAGS.GUILD_MESSAGES,
+	Intents.FLAGS.GUILD_MESSAGE_REACTIONS,
+] });
+const rest = new REST({ version: '9' }).setToken(token);
 
-const fs = require('fs')
-const path = require('path')
+const colors = require('colors');
+const fs = require('fs');
+const path = require('path');
+const reactionRoles = require('./reaction-roles.json');
 
-let commandTmp = []
-let commands = []
+let workerTmp = [];
+let commandTmp = [];
+let commands = [];
 
-require('dotenv').config({
-    path: path.join(__dirname, '.env'),
-})
+global.__appRoot = path.resolve(__dirname);
 
-const token =
-    process.env.NODE_ENV === 'development'
-        ? process.env.TOKEN_DEV
-        : process.env.TOKEN_PROD
+// Sequelize
+const { Sequelize } = require('sequelize');
+const sequelize = new Sequelize('database', 'user', 'password', {
+	host: 'localhost',
+	dialect: 'sqlite',
+	logging: false,
+	storage: 'database.sqlite',
+});
+const TempRole = require(`${__appRoot}/models/tempRole`)(sequelize);
 
-client.once('ready', () => {
-    console.log('Bot Ready!')
+client.once('ready', async () => {
+	await TempRole.sync(/* { force: true } */);
 
-    let commandsFiles = fs.readdirSync(path.join(__dirname, './commands'))
+	console.log('😃 ' + `~~${namePrefix}Squiggle~~`.red.bold + ' is online!'.red);
 
-    commandsFiles.forEach((file, i) => {
-        commandTmp[i] = require('./commands/' + file)
-        commands = [
-            ...commands,
-            {
-                name: file.split('.')[0],
-                description: commandTmp[i].description,
-                init: commandTmp[i].init,
-                options: commandTmp[i].options,
-            },
-        ]
-    })
+	let commandsFiles = fs.readdirSync(path.join(__dirname, './commands'));
 
-    const rest = new REST({ version: '9' }).setToken(token)
-    rest.put(Routes.applicationCommands(client.application.id), {
-        body: commands,
-    })
-        .then(() => {
-            console.log('Commands registered!')
-        })
-        .catch(console.error)
+	commandsFiles.forEach((file, i) => {
+		commandTmp[i] = require('./commands/' + file);
+		commands = [
+			...commands,
+			{
+				name: namePrefix + file.split('.')[0],
+				description: commandTmp[i].description,
+				init: commandTmp[i].init,
+				options: commandTmp[i].options,
+			},
+		];
+	})
+
+	let workersFiles = fs.readdirSync(path.join(__dirname, './workers'));
+
+	workersFiles.forEach(async (file, i) => {
+		workerTmp[i] = require('./workers/' + file);
+		setInterval(() => { workerTmp[i].run(client, sequelize); }, workerTmp[i].interval);
+	});
+	
+	if (workersFiles.length > 0) {
+		console.log('✅ Workers registered!'.gray);
+	}
+
+	rest.put(
+		Routes.applicationCommands(client.application.id), 
+		{ body: commands },
+	).then(() => {
+		console.log('✅ Commands registered!'.gray);
+	})
+	.catch(console.error);
 })
 
 client.on('interactionCreate', async interaction => {
-    if (!interaction.isCommand()) return
-    const { commandName } = interaction
-    const selectedCommand = commands.find(c => commandName === c.name)
-    selectedCommand.init(interaction, client)
-})
+	if (!interaction.isCommand()) {
+		return;
+	}
 
-client.login(token)
+	const { commandName } = interaction;
+	const selectedCommand = commands.find(c => commandName === c.name);
+	selectedCommand.init(interaction, client, sequelize);
+});
+
+client.on('messageReactionAdd', async (reaction, user) => {
+	reactionRoles.forEach(async (reactionRole) => {
+		if (
+			reaction.emoji.name === reactionRole.emojiName && 
+			reaction.count === reactionRole.threshold
+		) {
+			const { guild } = reaction.message;
+			const role = guild.roles.cache.find((role) => role.name === reactionRole.roleName); 
+			const member = guild.members.cache.find(member => member.id === reaction.message.author.id); 
+			const expirationTime = new Date(new Date().getTime() + (24 * 60 * 60 * 1000));
+
+			const memberName = member.nickname || member.user.username;
+
+			try {
+				const tempRole = await TempRole.create({
+					guildId: guild.id,
+					memberId: member.id,
+					memberName,
+					roleId: role.id,
+					roleName: role.name,
+					expirationTime,
+				});
+		
+				member.roles.add(role);
+		
+				const embed = new MessageEmbed()
+					.setTitle(`${memberName} was determined to be ${reactionRole.roleName.replace(/People who are /g, '')}`)
+					.setColor(reactionRole.color)
+					.setAuthor({ 
+						name: memberName, 
+						iconURL: member.displayAvatarURL(),
+					})
+					.setTimestamp();
+
+				await reaction.message.channel.send({ embeds: [embed] });
+			} catch (error) {
+				console.log(error);
+				await reaction.message.channel.send('Something went wrong with storing a tempRole.');
+			}			
+		}
+	});
+});
+
+// run
+client.login(token);
