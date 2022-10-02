@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 
 const requireFiles = (directory, asObject = false) => {
-	const requireRoot = path.join(global.appRoot, `./${directory}`);
+	const requireRoot = path.join(global.__appRoot, `./${directory}`);
 	const requiredFiles = fs
 		.readdirSync(requireRoot)
 		.map((file) => { 
@@ -28,6 +28,4 @@ const requireFiles = (directory, asObject = false) => {
 	return requiredFiles;
 };
 
-module.exports = {
-    requireFiles,
-}
+module.exports = requireFiles;
