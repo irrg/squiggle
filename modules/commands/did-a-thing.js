@@ -3,7 +3,7 @@ const { Constants, MessageEmbed } = require('discord.js');
 const STRING = Constants.ApplicationCommandOptionTypes.STRING;
 
 const description = 'Share that you did a thing!';
-const things = require(`${__appRoot}/did-a-thing.json`);
+const things = require(`${__appRoot}/config/did-a-thing.json`);
 const options = [
     {
 			name: 'thing',
@@ -48,7 +48,7 @@ const init = async (interaction, client, sequelize) => {
 			expirationTime: expirationDateTime,
 		});
 
-		member.roles.add(role);
+		// member.roles.add(role);
 
 		const embed = new MessageEmbed()
 			.setTitle(`${memberName} ${thingObject.role.replace(/People who /g, '')}`)

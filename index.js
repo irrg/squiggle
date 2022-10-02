@@ -1,25 +1,20 @@
-// DiscordJS
 const { 
-    env, 
-    token, 
-    namePrefix,
-    commandPrefix,
-} = require('./config.json');
-const { REST } = require('@discordjs/rest');
-const { Client, Intents, MessageEmbed } = require('discord.js')
-const { Routes } = require('discord-api-types/v9');
-const client = new Client({ intents: [
-	Intents.FLAGS.GUILDS,
-	Intents.FLAGS.GUILD_MEMBERS,
-	Intents.FLAGS.GUILD_MESSAGES,
-	Intents.FLAGS.GUILD_MESSAGE_REACTIONS,
-] });
-const rest = new REST({ version: '9' }).setToken(token);
+		bot: { 
+			commandPrefix,
+			namePrefix,
+		},
+		discord: { token },
+		database: databaseConfig,
+} = require('./config/config.json');
+
+// DiscordJS
+const { client, Routes, rest } = require('./utils/discord.js')(token);
+const { MessageEmbed } = require('discord.js');
 
 const colors = require('colors');
 const fs = require('fs');
 const path = require('path');
-const reactionRoles = require('./reaction-roles.json');
+const reactionRoles = require('./config/reaction-roles.json');
 
 let workerTmp = [];
 let commandTmp = [];
@@ -28,28 +23,22 @@ let commands = [];
 global.__appRoot = path.resolve(__dirname);
 
 // Sequelize
-const { Sequelize } = require('sequelize');
-const sequelize = new Sequelize('database', 'user', 'password', {
-	host: 'localhost',
-	dialect: 'sqlite',
-	logging: false,
-	storage: 'database.sqlite',
-});
+const sequelize = require('./utils/sequelize.js')(databaseConfig);
 const TempRole = require(`${__appRoot}/models/tempRole`)(sequelize);
 
 client.once('ready', async () => {
-	await TempRole.sync(/* { force: true } */);
+	await TempRole.sync();
 
 	console.log('😃 ' + `~~${namePrefix}Squiggle~~`.red.bold + ' is online!'.red);
 
-	let commandsFiles = fs.readdirSync(path.join(__dirname, './commands'));
+	let commandsFiles = fs.readdirSync(path.join(__dirname, './modules/commands'));
 
 	commandsFiles.forEach((file, i) => {
-		commandTmp[i] = require('./commands/' + file);
+		commandTmp[i] = require('./modules/commands/' + file);
 		commands = [
 			...commands,
 			{
-				name: namePrefix + file.split('.')[0],
+				name: commandPrefix + file.split('.')[0],
 				description: commandTmp[i].description,
 				init: commandTmp[i].init,
 				options: commandTmp[i].options,
@@ -57,10 +46,10 @@ client.once('ready', async () => {
 		];
 	})
 
-	let workersFiles = fs.readdirSync(path.join(__dirname, './workers'));
+	let workersFiles = fs.readdirSync(path.join(__dirname, './modules/workers'));
 
 	workersFiles.forEach(async (file, i) => {
-		workerTmp[i] = require('./workers/' + file);
+		workerTmp[i] = require('./modules/workers/' + file);
 		setInterval(() => { workerTmp[i].run(client, sequelize); }, workerTmp[i].interval);
 	});
 	
@@ -110,7 +99,7 @@ client.on('messageReactionAdd', async (reaction, user) => {
 					expirationTime,
 				});
 		
-				member.roles.add(role);
+				// member.roles.add(role);
 		
 				const embed = new MessageEmbed()
 					.setTitle(`${memberName} was determined to be ${reactionRole.roleName.replace(/People who are /g, '')}`)
