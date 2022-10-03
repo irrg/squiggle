@@ -1,3 +1,4 @@
+// Config
 const { 
 		bot: { 
 			commandPrefix,
@@ -7,18 +8,16 @@ const {
 		database: databaseConfig,
 } = require('./config/config.json');
 
-// DiscordJS
+// Imports
+const requireFiles = require('./utils/require-files.js')
 const { client, Routes, rest } = require('./utils/discord.js')(token);
 const { MessageEmbed } = require('discord.js');
-
 const colors = require('colors');
 const fs = require('fs');
 const path = require('path');
-const reactionRoles = require('./config/reaction-roles.json');
 
-let workerTmp = [];
-let commandTmp = [];
 let commands = [];
+let workers = [];
 
 global.__appRoot = path.resolve(__dirname);
 
@@ -27,33 +26,26 @@ const sequelize = require('./utils/sequelize.js')(databaseConfig);
 const TempRole = require(`${__appRoot}/models/tempRole`)(sequelize);
 
 client.once('ready', async () => {
-	await TempRole.sync();
-
 	console.log('😃 ' + `~~${namePrefix}Squiggle~~`.red.bold + ' is online!'.red);
 
-	let commandsFiles = fs.readdirSync(path.join(__dirname, './modules/commands'));
+	commands = requireFiles('./modules/commands');
+	workers = requireFiles('./modules/workers');
 
-	commandsFiles.forEach((file, i) => {
-		commandTmp[i] = require('./modules/commands/' + file);
-		commands = [
-			...commands,
-			{
-				name: commandPrefix + file.split('.')[0],
-				description: commandTmp[i].description,
-				init: commandTmp[i].init,
-				options: commandTmp[i].options,
-			},
-		];
-	})
+	await TempRole.sync();
 
-	let workersFiles = fs.readdirSync(path.join(__dirname, './modules/workers'));
-
-	workersFiles.forEach(async (file, i) => {
-		workerTmp[i] = require('./modules/workers/' + file);
-		setInterval(() => { workerTmp[i].run(client, sequelize); }, workerTmp[i].interval);
+	// Update Command name with prefix if needed
+	if (commandPrefix.length > 0) {
+		commands = commands.map((command) => ({
+			...command,
+			name: commandPrefix + command.name,
+		}));
+	}
+	
+	workers.forEach((worker) => {
+		setInterval(() => { worker.run(client, sequelize); }, worker.interval);
 	});
 	
-	if (workersFiles.length > 0) {
+	if (workers.length > 0) {
 		console.log('✅ Workers registered!'.gray);
 	}
 
@@ -72,11 +64,12 @@ client.on('interactionCreate', async interaction => {
 	}
 
 	const { commandName } = interaction;
-	const selectedCommand = commands.find(c => commandName === c.name);
-	selectedCommand.init(interaction, client, sequelize);
+	const command = commands.find(c => commandName === c.name);
+	command.init(interaction, client, sequelize);
 });
 
 client.on('messageReactionAdd', async (reaction, user) => {
+ const reactionRoles = require('./config/reaction-roles.json');
 	reactionRoles.forEach(async (reactionRole) => {
 		if (
 			reaction.emoji.name === reactionRole.emojiName && 
@@ -99,7 +92,7 @@ client.on('messageReactionAdd', async (reaction, user) => {
 					expirationTime,
 				});
 		
-				// member.roles.add(role);
+				member.roles.add(role);
 		
 				const embed = new MessageEmbed()
 					.setTitle(`${memberName} was determined to be ${reactionRole.roleName.replace(/People who are /g, '')}`)

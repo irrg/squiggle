@@ -24,6 +24,9 @@ const options = [
 ];
 
 const init = async (interaction, client, sequelize) => {
+	// interaction --> member
+	// member -> role through cache
+	
 	const { member } = interaction;
 	const thing =  interaction.options.getString('thing');
 	const caption = interaction.options.getString('caption');
@@ -48,7 +51,7 @@ const init = async (interaction, client, sequelize) => {
 			expirationTime: expirationDateTime,
 		});
 
-		// member.roles.add(role);
+		member.roles.add(role);
 
 		const embed = new MessageEmbed()
 			.setTitle(`${memberName} ${thingObject.role.replace(/People who /g, '')}`)

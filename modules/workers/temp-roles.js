@@ -22,7 +22,7 @@ const run = async (client, sequelize) => {
 					const role = guild.roles.cache.get(tempRole.roleId);
 					const member = await guild.members.fetch(tempRole.memberId);
 					console.log(`Removing role ${role.name} from member ${member.nickname}`);
-					// member.roles.remove(role);
+					member.roles.remove(role);
 					const tempRoleDeletion = await TempRole.destroy({ where: { id: tempRole.id } });
 					if (tempRoleDeletion > 0) {
 						console.log(`removed tempRole table row ${tempRole.id}`);
