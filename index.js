@@ -88,14 +88,13 @@ client.on('messageReactionAdd', async (reaction, user) => {
 			reaction.emoji.name === reactionRole.emojiName && 
 			reaction.count === reactionRole.threshold
 		) {
-			const { guild } = reaction.message;
-			const role = guild.roles.cache.find((role) => role.name === reactionRole.roleName); 
-			const member = guild.members.cache.find(member => member.id === reaction.message.author.id); 
-			const expirationTime = new Date(new Date().getTime() + (24 * 60 * 60 * 1000));
-
-			const memberName = member.nickname || member.user.username;
-
 			try {
+				const { guild } = reaction.message;
+				const role = guild.roles.cache.find((role) => role.name === reactionRole.roleName); 
+				const member = guild.members.cache.find(member => member.id === reaction.message.author.id); 
+				const memberName = member.nickname || member.user.username;
+				const expirationTime = new Date(new Date().getTime() + (24 * 60 * 60 * 1000));
+
 				const tempRole = await TempRole.create({
 					guildId: guild.id,
 					memberId: member.id,
