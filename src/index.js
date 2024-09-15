@@ -54,11 +54,21 @@ client.once("ready", async () => {
   await TempRole.sync(/* { force: true } */);
 
   const now = new Date();
-  const formattedDate = formatInTimeZone(now, "America/Chicago", "MMMM do yyyy, h:mm:ss a zzz");
-  sendDebugMessage(client, `${config.bot.namePrefix}Squiggle came online at ${formattedDate}`, { emoji: '😃', color: 'red', bold: true });
+  const formattedDate = formatInTimeZone(
+    now,
+    "America/Chicago",
+    "MMMM do yyyy, h:mm:ss a zzz"
+  );
+  sendDebugMessage(
+    client,
+    `${config.bot.namePrefix}Squiggle came online at ${formattedDate}`,
+    { emoji: "😃", color: "red", bold: true }
+  );
 
   // Load and register commands
-  const commandsFiles = fs.readdirSync(path.join(global.appRoot, "./src/commands"));
+  const commandsFiles = fs.readdirSync(
+    path.join(global.appRoot, "./src/commands")
+  );
   const commandPromises = commandsFiles.map(async (file) => {
     const commandModule = await import(`./commands/${file}`);
     const commandName = commandModule.commandName || file.split(".")[0];
@@ -86,23 +96,33 @@ client.once("ready", async () => {
   await Promise.all(workerPromises);
 
   if (workersFiles.length > 0) {
-    sendDebugMessage(client, "Workers registered!", { color: 'gray', emoji: '💪' });
+    sendDebugMessage(client, "Workers registered!", {
+      color: "gray",
+      emoji: "💪",
+    });
     const workerMessages = workersFiles.map((file) => `${file}`);
     sendDebugMessage(client, workerMessages, { suboption: true });
   }
 
   // Register commands with Discord API
   try {
-    await rest.put(Routes.applicationCommands(client.application.id), { body: commands });
-    sendDebugMessage(client, "Commands registered!", { color: 'gray', emoji: '⌨️' });
-    const commandMessages = commands.map((command) => `\`/${command.name}\`: ${command.description}`);
+    await rest.put(Routes.applicationCommands(client.application.id), {
+      body: commands,
+    });
+    sendDebugMessage(client, "Commands registered!", {
+      color: "gray",
+      emoji: "⌨️",
+    });
+    const commandMessages = commands.map(
+      (command) => `\`/${command.name}\`: ${command.description}`
+    );
     sendDebugMessage(client, commandMessages, { suboption: true });
   } catch (error) {
     console.error("Error registering commands:", error);
     await sendDebugMessage(
       client,
       `Error registering commands: ${JSON.stringify(error, null, 2)}`,
-      { emoji: '⚠️', color: 'red', bold: true }
+      { emoji: "⚠️", color: "red", bold: true }
     );
   }
 });
@@ -201,11 +221,15 @@ client.on("messageReactionAdd", async (reaction, user) => {
         let expirationTime;
         if (existingTempRole) {
           // Update the expiration time by adding 2 hours
-          expirationTime = new Date(existingTempRole.expirationTime.getTime() + 4 * 60 * 60 * 1000);
+          expirationTime = new Date(
+            existingTempRole.expirationTime.getTime() + 4 * 60 * 60 * 1000
+          );
           await existingTempRole.update({ expirationTime });
 
           // Send a message to the channel
-          await message.reply(`${extenderName} extended your role by two hours`);
+          await message.reply(
+            `${extenderName} extended your role by two hours`
+          );
         } else {
           // Set the expiration time to 24 hours from now
           expirationTime = new Date(new Date().getTime() + 16 * 60 * 60 * 1000);
