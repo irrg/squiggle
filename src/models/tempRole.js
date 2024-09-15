@@ -12,6 +12,7 @@ const TempRoleModel = (sequelize) => {
     memberId: DataTypes.STRING,
     roleName: DataTypes.STRING,
     roleId: DataTypes.STRING,
+    messageId: DataTypes.STRING,
     expirationTime: {
       type: DataTypes.DATE,
       defaultValue: DataTypes.NOW,
