@@ -1,4 +1,5 @@
 const { Op } = require("sequelize");
+const sendDebugMessage = require("../utils/sendDebugMessage");
 
 const run = async (client, sequelize) => {
   const TempRole = require(`${global.appRoot}/models/tempRole`)(sequelize);
@@ -22,20 +23,28 @@ const run = async (client, sequelize) => {
       const role = guild.roles.cache.get(tempRole.roleId);
       const member = await guild.members.fetch(tempRole.memberId);
       const memberName = member.nickname || member.user.username;
-      console.log(`Removing role ${role.name} from member ${memberName}`);
+      const message = `Removing role ${role.name} from member ${memberName}`;
+      console.log(message);
+      await sendDebugMessage(client, message);
       member.roles.remove(role);
       const tempRoleDeletion = await TempRole.destroy({
         where: { id: tempRole.id },
       });
       if (tempRoleDeletion > 0) {
-        console.log(`removed tempRole table row ${tempRole.id}`);
+        const deletionMessage = `removed tempRole table row ${tempRole.id}`;
+        console.log(deletionMessage);
+        await sendDebugMessage(client, deletionMessage);
       } else {
-        console.log("deletion went wrong");
+        const errorMessage = "deletion went wrong";
+        console.log(errorMessage);
+        await sendDebugMessage(client, errorMessage);
       }
     });
   } catch (error) {
-    console.log("did-a-thing worker error");
+    const errorMessage = "did-a-thing worker error";
+    console.log(errorMessage);
     console.log(error);
+    await sendDebugMessage(client, `${errorMessage}: ${error.message}`);
   }
 };
 
