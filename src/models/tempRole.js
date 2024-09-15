@@ -1,6 +1,6 @@
-const { DataTypes } = require("sequelize");
+import { DataTypes } from "sequelize";
 
-module.exports = (sequelize) => {
+const TempRoleModel = (sequelize) => {
   const TempRole = sequelize.define("TempRole", {
     id: {
       type: DataTypes.INTEGER,
@@ -20,3 +20,5 @@ module.exports = (sequelize) => {
 
   return TempRole;
 };
+
+export default TempRoleModel;

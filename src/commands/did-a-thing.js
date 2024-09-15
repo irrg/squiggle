@@ -1,5 +1,5 @@
-const { Constants, MessageEmbed } = require("discord.js");
-const config = require("../../config/config.json");
+import { Constants, MessageEmbed } from "discord.js";
+import config from "../../config/config.json" assert { type: "json" };
 
 const { STRING } = Constants.ApplicationCommandOptionTypes;
 
@@ -36,7 +36,7 @@ const init = async (interaction, client, sequelize) => {
     new Date().getTime() + 24 * 60 * 60 * 1000
   );
 
-  const TempRole = require(`${global.appRoot}/models/tempRole`)(sequelize);
+  const TempRole = (await import(`${global.appRoot}/models/tempRole.js`)).default(sequelize);
 
   await interaction.deferReply();
   await TempRole.sync();
@@ -77,9 +77,4 @@ const init = async (interaction, client, sequelize) => {
 
 const commandName = "did-a-thing";
 
-module.exports = {
-  init,
-  description,
-  options,
-  commandName,
-};
+export { init, description, options, commandName };

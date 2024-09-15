@@ -1,4 +1,4 @@
-const config = require("../../config/config.json");
+import config from "../../config/config.json" assert { type: "json" };
 
 /**
  * Determines if the bot can post in a given channel based on whitelist/blacklist configuration.
@@ -15,4 +15,4 @@ const canPostInChannel = (channelName) => {
   return true; // If neither whitelist nor blacklist is present, allow posting
 };
 
-module.exports = canPostInChannel;
+export default canPostInChannel;

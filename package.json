@@ -4,6 +4,7 @@
   "main": "src/index.js",
   "bin": "src/index.js",
   "private": true,
+  "type": "module",
   "scripts": {
     "start": "cross-env NODE_ENV=production NODE_NO_WARNINGS=1 node . ",
     "dev": "cross-env NODE_ENV=development NODE_NO_WARNINGS=1 node .",

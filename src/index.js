@@ -1,14 +1,15 @@
-require("dotenv").config();
-const { REST } = require("@discordjs/rest");
-const { Client, Intents, MessageEmbed } = require("discord.js");
-const { Routes } = require("discord-api-types/v9");
-const fs = require("fs");
-const path = require("path");
-const { Sequelize } = require("sequelize");
-const config = require("../config/config.json");
-const canPostInChannel = require("./utils/canPostInChannel");
-const sendDebugMessage = require("./utils/sendDebugMessage");
-require("colors");
+import dotenv from "dotenv";
+dotenv.config();
+import { REST } from "@discordjs/rest";
+import { Client, Intents, MessageEmbed } from "discord.js";
+import { Routes } from "discord-api-types/v9";
+import fs from "fs";
+import path from "path";
+import { Sequelize } from "sequelize";
+import config from "../config/config.json" assert { type: "json" };
+import canPostInChannel from "./utils/canPostInChannel.js";
+import sendDebugMessage from "./utils/sendDebugMessage.js";
+import "colors";
 
 // Initialize the Discord client with necessary intents
 const client = new Client({
@@ -27,7 +28,7 @@ const workerTmp = [];
 const commandTmp = [];
 let commands = [];
 
-global.appRoot = path.resolve(__dirname);
+global.appRoot = path.resolve();
 
 // Initialize Sequelize for database interaction
 const sequelize = new Sequelize(
@@ -43,7 +44,8 @@ const sequelize = new Sequelize(
 );
 
 // Import the TempRole model
-const TempRole = require("./models/tempRole")(sequelize);
+import TempRoleModel from "./models/tempRole.js";
+const TempRole = TempRoleModel(sequelize);
 
 // Event handler for when the bot is ready
 client.once("ready", async () => {
@@ -54,9 +56,9 @@ client.once("ready", async () => {
   );
 
   // Load and register commands
-  const commandsFiles = fs.readdirSync(path.join(__dirname, "./commands"));
+  const commandsFiles = fs.readdirSync(path.join(appRoot, "./commands"));
   commandsFiles.forEach((file, i) => {
-    commandTmp[i] = require(`./commands/${file}`);
+    commandTmp[i] = import(`./commands/${file}`);
     commands = [
       ...commands,
       {
@@ -71,9 +73,9 @@ client.once("ready", async () => {
   });
 
   // Load and register workers
-  const workersFiles = fs.readdirSync(path.join(__dirname, "./workers"));
+  const workersFiles = fs.readdirSync(path.join(appRoot, "./workers"));
   workersFiles.forEach(async (file, i) => {
-    workerTmp[i] = require(`./workers/${file}`);
+    workerTmp[i] = await import(`./workers/${file}`);
     setInterval(() => {
       workerTmp[i].run(client, sequelize);
     }, workerTmp[i].interval);

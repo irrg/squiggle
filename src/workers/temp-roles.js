@@ -1,8 +1,10 @@
-const { Op } = require("sequelize");
-const sendDebugMessage = require("../utils/sendDebugMessage");
+import { Op } from "sequelize";
+import sendDebugMessage from "./utils/sendDebugMessage.js";
 
 const run = async (client, sequelize) => {
-  const TempRole = require(`${global.appRoot}/models/tempRole`)(sequelize);
+  const TempRole = (
+    await import(`${global.appRoot}/models/tempRole.js`)
+  ).default(sequelize);
   await TempRole.sync();
 
   try {
@@ -48,7 +50,6 @@ const run = async (client, sequelize) => {
   }
 };
 
-module.exports = {
-  run,
-  interval: 10000,
-};
+const interval = 10000;
+
+export { run, interval };

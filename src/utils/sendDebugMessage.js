@@ -12,4 +12,4 @@ const sendDebugMessage = async (client, message) => {
   }
 };
 
-module.exports = sendDebugMessage;
+export default sendDebugMessage;
