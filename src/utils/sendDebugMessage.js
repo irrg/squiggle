@@ -4,7 +4,9 @@
  * @param {string} message - The debug message to send.
  */
 const sendDebugMessage = async (client, message) => {
-  const debugChannel = client.channels.cache.find((ch) => ch.name === '🤖bot-messages');
+  const debugChannel = client.channels.cache.find(
+    (ch) => ch.name === "🤖bot-messages"
+  );
   if (debugChannel) {
     await debugChannel.send(message);
   }

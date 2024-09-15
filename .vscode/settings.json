@@ -3,4 +3,4 @@
     "source.fixAll.eslint": "explicit"
   },
   "eslint.validate": ["javascript"]
- }
+}

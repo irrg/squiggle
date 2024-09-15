@@ -1,46 +1,46 @@
 {
-    "name": "squiggle",
-    "version": "0.1.0",
-    "main": "src/index.js",
-    "bin": "src/index.js",
-    "private": true,
-    "scripts": {
-        "start": "cross-env NODE_ENV=production NODE_NO_WARNINGS=1 node . ",
-        "dev": "cross-env NODE_ENV=development NODE_NO_WARNINGS=1 node .",
-        "dev:watch": "cross-env NODE_ENV=development NODE_NO_WARNINGS=1 nodemon .",
-        "build": "pkg .",
-        "lint": "eslint .",
-        "format": "prettier --write ."
-    },
-    "author": "Robb Irrgang <robb@irrgardless.com>",
-    "license": "",
-    "description": "",
-    "dependencies": {
-        "@discordjs/rest": "^0.5.0",
-        "colors": "^1.4.0",
-        "discord-api-types": "^0.36.1",
-        "discord.js": "^13.8.1",
-        "dotenv": "^10.0.0",
-        "sequelize": "^6.23.0",
-        "sqlite3": "^5.1.1",
-        "winston": "^3.14.2"
-    },
-    "devDependencies": {
-        "cross-env": "^7.0.3",
-        "eslint": "^8.25.0",
-        "eslint-config-airbnb-base": "^15.0.0",
-        "eslint-config-prettier": "^8.10.0",
-        "eslint-plugin-import": "^2.26.0",
-        "eslint-plugin-prettier": "^3.4.1",
-        "nodemon": "^2.0.19",
-        "pkg": "^5.7.0",
-        "prettier": "^2.8.8"
-    },
-    "pkg": {
-        "outputPath": "dist",
-        "scripts": "commands/**/*.js",
-        "assets": [
-            ".env"
-        ]
-    }
+  "name": "squiggle",
+  "version": "0.1.0",
+  "main": "src/index.js",
+  "bin": "src/index.js",
+  "private": true,
+  "scripts": {
+    "start": "cross-env NODE_ENV=production NODE_NO_WARNINGS=1 node . ",
+    "dev": "cross-env NODE_ENV=development NODE_NO_WARNINGS=1 node .",
+    "dev:watch": "cross-env NODE_ENV=development NODE_NO_WARNINGS=1 nodemon .",
+    "build": "pkg .",
+    "lint": "eslint .",
+    "format": "prettier --write ."
+  },
+  "author": "Robb Irrgang <robb@irrgardless.com>",
+  "license": "",
+  "description": "",
+  "dependencies": {
+    "@discordjs/rest": "^0.5.0",
+    "colors": "^1.4.0",
+    "discord-api-types": "^0.36.1",
+    "discord.js": "^13.8.1",
+    "dotenv": "^10.0.0",
+    "sequelize": "^6.23.0",
+    "sqlite3": "^5.1.1",
+    "winston": "^3.14.2"
+  },
+  "devDependencies": {
+    "cross-env": "^7.0.3",
+    "eslint": "^8.25.0",
+    "eslint-config-airbnb-base": "^15.0.0",
+    "eslint-config-prettier": "^8.10.0",
+    "eslint-plugin-import": "^2.26.0",
+    "eslint-plugin-prettier": "^3.4.1",
+    "nodemon": "^2.0.19",
+    "pkg": "^5.7.0",
+    "prettier": "^2.8.8"
+  },
+  "pkg": {
+    "outputPath": "dist",
+    "scripts": "commands/**/*.js",
+    "assets": [
+      ".env"
+    ]
+  }
 }

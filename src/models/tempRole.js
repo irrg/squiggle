@@ -1,7 +1,7 @@
-const { DataTypes } = require('sequelize');
+const { DataTypes } = require("sequelize");
 
 module.exports = (sequelize) => {
-  const TempRole = sequelize.define('TempRole', {
+  const TempRole = sequelize.define("TempRole", {
     id: {
       type: DataTypes.INTEGER,
       autoIncrement: true,
