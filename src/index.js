@@ -218,51 +218,61 @@ client.on("messageReactionAdd", async (reaction, user) => {
           },
         });
 
+        const threshold = reactionRole.threshold; // Use the threshold from the configuration
+
         let expirationTime;
         if (existingTempRole) {
-          // Update the expiration time by adding 2 hours
-          expirationTime = new Date(
-            existingTempRole.expirationTime.getTime() + 4 * 60 * 60 * 1000
-          );
-          await existingTempRole.update({ expirationTime });
+          // Check if the reaction count has reached the threshold
+          if (reaction.count >= threshold) {
+            // Update the expiration time by adding 4 hours
+            expirationTime = new Date(
+              existingTempRole.expirationTime.getTime() + 4 * 60 * 60 * 1000
+            );
+            await existingTempRole.update({ expirationTime });
 
-          // Send a message to the channel
-          await message.reply(
-            `${extenderName} extended your role by two hours`
-          );
+            // Send a message to the channel
+            await message.reply(
+              `${extenderName} extended your role by four hours`
+            );
+          }
         } else {
-          // Set the expiration time to 24 hours from now
-          expirationTime = new Date(new Date().getTime() + 16 * 60 * 60 * 1000);
+          // Check if the reaction count has reached the threshold
+          if (reaction.count >= threshold) {
+            // Set the expiration time to 16 hours from now
+            expirationTime = new Date(
+              new Date().getTime() + 16 * 60 * 60 * 1000
+            );
 
-          // Create a new instance of the role in the database
-          await TempRole.create({
-            guildId: guild.id,
-            memberId: member.id,
-            memberName,
-            roleId: role.id,
-            roleName: role.name,
-            messageId: message.id, // Store the message ID
-            expirationTime,
-          });
+            // Create a new instance of the role in the database
+            await TempRole.create({
+              guildId: guild.id,
+              memberId: member.id,
+              memberName,
+              roleId: role.id,
+              roleName: role.name,
+              messageId: message.id, // Store the message ID
+              expirationTime,
+            });
 
-          // Add the role to the member
-          member.roles.add(role);
+            // Add the role to the member
+            member.roles.add(role);
 
-          const embed = new EmbedBuilder()
-            .setTitle(
-              `${memberName} was determined to be ${reactionRole.roleName.replace(
-                /People who are /g,
-                ""
-              )}`
-            )
-            .setColor(reactionRole.color)
-            .setAuthor({
-              name: memberName,
-              iconURL: member.displayAvatarURL(),
-            })
-            .setTimestamp();
+            const embed = new EmbedBuilder()
+              .setTitle(
+                `${memberName} was determined to be ${reactionRole.roleName.replace(
+                  /People who are /g,
+                  ""
+                )}`
+              )
+              .setColor(reactionRole.color)
+              .setAuthor({
+                name: memberName,
+                iconURL: member.displayAvatarURL(),
+              })
+              .setTimestamp();
 
-          await message.reply({ embeds: [embed] });
+            await message.reply({ embeds: [embed] });
+          }
         }
       } catch (error) {
         console.error(error);
