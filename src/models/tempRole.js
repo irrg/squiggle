@@ -1,7 +1,7 @@
-const { DataTypes } = require('sequelize');
+import { DataTypes } from "sequelize";
 
-module.exports = (sequelize) => {
-  const TempRole = sequelize.define('TempRole', {
+const TempRoleModel = (sequelize) => {
+  const TempRole = sequelize.define("TempRole", {
     id: {
       type: DataTypes.INTEGER,
       autoIncrement: true,
@@ -12,6 +12,7 @@ module.exports = (sequelize) => {
     memberId: DataTypes.STRING,
     roleName: DataTypes.STRING,
     roleId: DataTypes.STRING,
+    messageId: DataTypes.STRING,
     expirationTime: {
       type: DataTypes.DATE,
       defaultValue: DataTypes.NOW,
@@ -20,3 +21,5 @@ module.exports = (sequelize) => {
 
   return TempRole;
 };
+
+export default TempRoleModel;
