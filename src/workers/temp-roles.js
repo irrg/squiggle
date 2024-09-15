@@ -1,9 +1,9 @@
 import { Op } from "sequelize";
-import sendDebugMessage from "./utils/sendDebugMessage.js";
+import sendDebugMessage from "../utils/sendDebugMessage.js";
 
 const run = async (client, sequelize) => {
   const TempRole = (
-    await import(`${global.appRoot}/models/tempRole.js`)
+    await import(`${global.appRoot}/src/models/tempRole.js`)
   ).default(sequelize);
   await TempRole.sync();
 

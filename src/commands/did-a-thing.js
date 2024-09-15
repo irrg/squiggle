@@ -36,7 +36,7 @@ const init = async (interaction, client, sequelize) => {
     new Date().getTime() + 24 * 60 * 60 * 1000
   );
 
-  const TempRole = (await import(`${global.appRoot}/models/tempRole.js`)).default(sequelize);
+  const TempRole = (await import(`${global.appRoot}/src/models/tempRole.js`)).default(sequelize);
 
   await interaction.deferReply();
   await TempRole.sync();
