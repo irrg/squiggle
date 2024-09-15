@@ -51,61 +51,60 @@ const TempRole = TempRoleModel(sequelize);
 client.once("ready", async () => {
   await TempRole.sync(/* { force: true } */);
 
-  console.log(
-    `😃${config.bot.namePrefix}Squiggle`.red.bold + " is online!".red
-  );
+  sendDebugMessage(client, `${config.bot.namePrefix}Squiggle is online!`, { emoji: '😃', color: 'red', bold: true });
 
   // Load and register commands
-  const commandsFiles = fs.readdirSync(path.join(appRoot, "./commands"));
-  commandsFiles.forEach((file, i) => {
-    commandTmp[i] = import(`./commands/${file}`);
-    commands = [
-      ...commands,
-      {
-        name: `${config.bot.commandPrefix || ""}${
-          commandTmp[i].commandName || file.split(".")[0]
-        }`,
-        description: commandTmp[i].description,
-        init: commandTmp[i].init,
-        options: commandTmp[i].options,
-      },
-    ];
+  const commandsFiles = fs.readdirSync(path.join(global.appRoot, "./src/commands"));
+  const commandPromises = commandsFiles.map(async (file) => {
+    const commandModule = await import(`./commands/${file}`);
+    const commandName = commandModule.commandName || file.split(".")[0];
+    return {
+      name: `${config.bot.commandPrefix || ""}${commandName}`,
+      description: commandModule.description || "No description provided",
+      init: commandModule.init,
+      options: commandModule.options || [],
+    };
   });
+
+  // Wait for all command imports to complete
+  commands = await Promise.all(commandPromises);
 
   // Load and register workers
-  const workersFiles = fs.readdirSync(path.join(appRoot, "./workers"));
-  workersFiles.forEach(async (file, i) => {
-    workerTmp[i] = await import(`./workers/${file}`);
+  const workersFiles = fs.readdirSync(path.join(appRoot, "./src/workers"));
+  const workerPromises = workersFiles.map(async (file) => {
+    const workerModule = await import(`./workers/${file}`);
     setInterval(() => {
-      workerTmp[i].run(client, sequelize);
-    }, workerTmp[i].interval);
+      workerModule.run(client, sequelize);
+    }, workerModule.interval);
   });
 
+  // Wait for all worker imports to complete
+  await Promise.all(workerPromises);
+
   if (workersFiles.length > 0) {
-    console.log("✅ Workers registered!".gray);
+    const workerMessages = ["💪 Workers registered!"];
     workersFiles.forEach((file) => {
-      console.log(`  - ${file}`.white);
+      workerMessages.push(`  - ${file}`);
     });
+    sendDebugMessage(client, workerMessages, { color: 'gray' });
   }
 
   // Register commands with Discord API
-  rest
-    .put(Routes.applicationCommands(client.application.id), { body: commands })
-    .then(() => {
-      console.log("✅ Commands registered!".gray);
-      commands.forEach((command) => {
-        console.log(
-          `  - /${command.name}: `.white + `${command.description}`.gray
-        );
-      });
-    })
-    .catch(async (error) => {
-      console.error(error);
-      await sendDebugMessage(
-        client,
-        `Error registering commands: ${JSON.stringify(error, null, 2)}`
-      );
+  try {
+    await rest.put(Routes.applicationCommands(client.application.id), { body: commands });
+    const commandMessages = ["⌨️ Commands registered!"];
+    commands.forEach((command) => {
+      commandMessages.push(`  - /${command.name}: ${command.description}`);
     });
+    sendDebugMessage(client, commandMessages, { color: 'gray' });
+  } catch (error) {
+    console.error("Error registering commands:", error);
+    await sendDebugMessage(
+      client,
+      `Error registering commands: ${JSON.stringify(error, null, 2)}`,
+      { emoji: '⚠️', color: 'red', bold: true }
+    );
+  }
 });
 
 // Event handler for command interactions
