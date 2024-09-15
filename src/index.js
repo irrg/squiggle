@@ -201,14 +201,14 @@ client.on("messageReactionAdd", async (reaction, user) => {
         let expirationTime;
         if (existingTempRole) {
           // Update the expiration time by adding 2 hours
-          expirationTime = new Date(existingTempRole.expirationTime.getTime() + 2 * 60 * 60 * 1000);
+          expirationTime = new Date(existingTempRole.expirationTime.getTime() + 4 * 60 * 60 * 1000);
           await existingTempRole.update({ expirationTime });
 
           // Send a message to the channel
           await message.reply(`${extenderName} extended your role by two hours`);
         } else {
           // Set the expiration time to 24 hours from now
-          expirationTime = new Date(new Date().getTime() + 24 * 60 * 60 * 1000);
+          expirationTime = new Date(new Date().getTime() + 16 * 60 * 60 * 1000);
 
           // Create a new instance of the role in the database
           await TempRole.create({
