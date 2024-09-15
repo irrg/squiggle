@@ -201,7 +201,7 @@ client.on("messageReactionAdd", async (reaction) => {
           })
           .setTimestamp();
 
-        await reaction.message.channel.send({ embeds: [embed] });
+        await reaction.message.reply({ embeds: [embed] });
       } catch (error) {
         console.error(error);
         await sendDebugMessage(
