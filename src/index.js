@@ -6,6 +6,7 @@ import { Routes } from "discord-api-types/v10";
 import fs from "fs";
 import path from "path";
 import { Sequelize } from "sequelize";
+import { formatInTimeZone } from "date-fns-tz";
 import config from "../config/config.json" assert { type: "json" };
 import canPostInChannel from "./utils/canPostInChannel.js";
 import sendDebugMessage from "./utils/sendDebugMessage.js";
@@ -52,7 +53,9 @@ const TempRole = TempRoleModel(sequelize);
 client.once("ready", async () => {
   await TempRole.sync(/* { force: true } */);
 
-  sendDebugMessage(client, `${config.bot.namePrefix}Squiggle is online!`, { emoji: '😃', color: 'red', bold: true });
+  const now = new Date();
+  const formattedDate = formatInTimeZone(now, "America/Chicago", "MMMM do yyyy, h:mm:ss a zzz");
+  sendDebugMessage(client, `${config.bot.namePrefix}Squiggle came online at ${formattedDate}`, { emoji: '😃', color: 'red', bold: true });
 
   // Load and register commands
   const commandsFiles = fs.readdirSync(path.join(global.appRoot, "./src/commands"));
