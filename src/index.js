@@ -143,75 +143,114 @@ client.on("interactionCreate", async (interaction) => {
 });
 
 // Event handler for message reactions
-client.on("messageReactionAdd", async (reaction) => {
-  const { channel } = reaction.message;
+client.on("messageReactionAdd", async (reaction, user) => {
+  let { message } = reaction;
+
+  // Fetch the message if it's not cached
+  if (message.partial) {
+    try {
+      message = await message.fetch();
+    } catch (error) {
+      console.error("Error fetching message:", error);
+      return;
+    }
+  }
+
+  const { channel } = message;
 
   if (!canPostInChannel(channel.name)) {
     return;
   }
 
   config.workers.reactionRoles.forEach(async (reactionRole) => {
-    if (
-      reaction.emoji.name === reactionRole.emojiName &&
-      reaction.count === reactionRole.threshold
-    ) {
+    if (reaction.emoji.name === reactionRole.emojiName) {
       try {
-        const { guild } = reaction.message;
+        const { guild } = message;
         const role = guild.roles.cache.find(
           (findableRole) => findableRole.name === reactionRole.roleName
         );
-        const member = guild.members.cache.find(
-          (findableMember) => findableMember.id === reaction.message.author.id
-        );
-        const memberName = member.nickname || member.user.username;
-        const expirationTime = new Date(
-          new Date().getTime() + 24 * 60 * 60 * 1000
-        );
+        if (!role) {
+          console.error(`Role ${reactionRole.roleName} not found`);
+          return;
+        }
 
-        // Delete existing instances of the role in the database
-        await TempRole.destroy({
+        const member = guild.members.cache.find(
+          (findableMember) => findableMember.id === message.author.id
+        );
+        if (!member) {
+          console.error(`Member ${message.author.id} not found`);
+          return;
+        }
+
+        const memberName = member.nickname || member.user.username;
+
+        // Fetch the member object for the user who added the reaction
+        const extenderMember = await guild.members.fetch(user.id);
+        const extenderName = extenderMember.nickname || user.username;
+
+        // Fetch the existing TempRole entry for the specific message
+        const existingTempRole = await TempRole.findOne({
           where: {
             guildId: guild.id,
             memberId: member.id,
             roleId: role.id,
+            messageId: message.id, // Filter by message ID
           },
         });
 
-        // Create a new instance of the role in the database
-        await TempRole.create({
-          guildId: guild.id,
-          memberId: member.id,
-          memberName,
-          roleId: role.id,
-          roleName: role.name,
-          expirationTime,
-        });
+        let expirationTime;
+        if (existingTempRole) {
+          // Check if the reaction count has increased
+          if (reaction.count > existingTempRole.reactionCount) {
+            // Update the expiration time by adding 2 hours
+            expirationTime = new Date(existingTempRole.expirationTime.getTime() + 2 * 60 * 60 * 1000);
+            await existingTempRole.update({ expirationTime, reactionCount: reaction.count });
 
-        // Add the role to the member
-        member.roles.add(role);
+            // Send a message to the channel
+            await message.reply(`${extenderName} extended your role by two hours`);
+          }
+        } else {
+          // Set the expiration time to 24 hours from now
+          expirationTime = new Date(new Date().getTime() + 24 * 60 * 60 * 1000);
 
-        const embed = new EmbedBuilder()
-          .setTitle(
-            `${memberName} was determined to be ${reactionRole.roleName.replace(
-              /People who are /g,
-              ""
-            )}`
-          )
-          .setColor(reactionRole.color)
-          .setAuthor({
-            name: memberName,
-            iconURL: member.displayAvatarURL(),
-          })
-          .setTimestamp();
+          // Create a new instance of the role in the database
+          await TempRole.create({
+            guildId: guild.id,
+            memberId: member.id,
+            memberName,
+            roleId: role.id,
+            roleName: role.name,
+            messageId: message.id, // Store the message ID
+            expirationTime,
+            reactionCount: reaction.count, // Store the initial reaction count
+          });
 
-        await reaction.message.reply({ embeds: [embed] });
+          // Add the role to the member
+          member.roles.add(role);
+
+          const embed = new EmbedBuilder()
+            .setTitle(
+              `${memberName} was determined to be ${reactionRole.roleName.replace(
+                /People who are /g,
+                ""
+              )}`
+            )
+            .setColor(reactionRole.color)
+            .setAuthor({
+              name: memberName,
+              iconURL: member.displayAvatarURL(),
+            })
+            .setTimestamp();
+
+          await message.reply({ embeds: [embed] });
+        }
       } catch (error) {
         console.error(error);
         await sendDebugMessage(
           client,
           `Error handling reaction: ${JSON.stringify(error, null, 2)}`
         );
-        await reaction.message.channel.send(
+        await message.channel.send(
           "Something went wrong with storing a tempRole."
         );
       }
