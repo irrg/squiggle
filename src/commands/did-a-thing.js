@@ -1,7 +1,7 @@
-import { Constants, MessageEmbed } from "discord.js";
+import { ApplicationCommandOptionType, EmbedBuilder } from "discord.js";
 import config from "../../config/config.json" assert { type: "json" };
 
-const { STRING } = Constants.ApplicationCommandOptionTypes;
+const { String } = ApplicationCommandOptionType;
 
 const description = "Share that you did a thing!";
 const things = config.commands.didAThing;
@@ -10,7 +10,7 @@ const options = [
     name: "thing",
     description: "Thing",
     required: true,
-    type: STRING,
+    type: String,
     choices: things.map(({ name }) => ({
       name,
       value: name,
@@ -19,7 +19,7 @@ const options = [
   {
     name: "caption",
     description: "Describe what you did (optional)",
-    type: STRING,
+    type: String,
     required: true,
   },
 ];
@@ -55,7 +55,7 @@ const init = async (interaction, client, sequelize) => {
 
     member.roles.add(role);
 
-    const embed = new MessageEmbed()
+    const embed = new EmbedBuilder()
       .setTitle(`${memberName} ${thingObject.role.replace(/People who /g, "")}`)
       .setColor(thingObject.color)
       .setAuthor({

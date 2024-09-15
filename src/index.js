@@ -1,8 +1,8 @@
 import dotenv from "dotenv";
 dotenv.config();
 import { REST } from "@discordjs/rest";
-import { Client, Intents, MessageEmbed } from "discord.js";
-import { Routes } from "discord-api-types/v9";
+import { Client, GatewayIntentBits, Partials, EmbedBuilder } from "discord.js";
+import { Routes } from "discord-api-types/v10";
 import fs from "fs";
 import path from "path";
 import { Sequelize } from "sequelize";
@@ -14,15 +14,16 @@ import "colors";
 // Initialize the Discord client with necessary intents
 const client = new Client({
   intents: [
-    Intents.FLAGS.GUILDS,
-    Intents.FLAGS.GUILD_MEMBERS,
-    Intents.FLAGS.GUILD_MESSAGES,
-    Intents.FLAGS.GUILD_MESSAGE_REACTIONS,
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMembers,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.GuildMessageReactions,
   ],
+  partials: [Partials.Message, Partials.Channel, Partials.Reaction],
 });
 
 // Initialize the REST client for Discord API
-const rest = new REST({ version: "9" }).setToken(process.env.DISCORD_TOKEN);
+const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
 
 const workerTmp = [];
 const commandTmp = [];
@@ -186,7 +187,7 @@ client.on("messageReactionAdd", async (reaction) => {
         // Add the role to the member
         member.roles.add(role);
 
-        const embed = new MessageEmbed()
+        const embed = new EmbedBuilder()
           .setTitle(
             `${memberName} was determined to be ${reactionRole.roleName.replace(
               /People who are /g,
