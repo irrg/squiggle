@@ -58,11 +58,18 @@ const run = async (client, sequelize) => {
         console.log(message);
         await sendDebugMessage(client, message);
         member.roles.remove(role);
-        const tempRoleDeletion = await TempRole.destroy({
-          where: { id: tempRole.id },
+
+        // Remove all rows for this member, role, guild, and message combination
+        const tempRoleDeletions = await TempRole.destroy({
+          where: {
+            guildId: tempRole.guildId,
+            memberId: tempRole.memberId,
+            roleId: tempRole.roleId,
+            messageId: tempRole.messageId,
+          },
         });
-        if (tempRoleDeletion > 0) {
-          const deletionMessage = `removed tempRole table row ${tempRole.id}`;
+        if (tempRoleDeletions > 0) {
+          const deletionMessage = `removed ${tempRoleDeletions} tempRole table row(s) for member ${memberName}, role ${role.name}, and message ${tempRole.messageId}`;
           console.log(deletionMessage);
           await sendDebugMessage(client, deletionMessage);
         } else {
