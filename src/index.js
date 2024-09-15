@@ -4,9 +4,19 @@ const { Routes } = require('discord-api-types/v9');
 const fs = require('fs');
 const path = require('path');
 const { Sequelize } = require('sequelize');
-const { env, token } = require('../config.json');
-const reactionRoles = require('../reaction-roles.json');
+const config = require('../config.json');
 require('colors');
+
+// Add this helper function at the top of the file
+const canPostInChannel = (channelName) => {
+  if (config.whitelist && config.whitelist.length > 0) {
+    return config.whitelist.includes(channelName);
+  }
+  if (config.blacklist && config.blacklist.length > 0) {
+    return !config.blacklist.includes(channelName);
+  }
+  return true; // If neither whitelist nor blacklist is present, allow posting
+};
 
 const client = new Client({
   intents: [
@@ -16,7 +26,8 @@ const client = new Client({
     Intents.FLAGS.GUILD_MESSAGE_REACTIONS,
   ],
 });
-const rest = new REST({ version: '9' }).setToken(token);
+
+const rest = new REST({ version: '9' }).setToken(config.discord.token);
 
 const workerTmp = [];
 const commandTmp = [];
@@ -24,18 +35,24 @@ let commands = [];
 
 global.appRoot = path.resolve(__dirname);
 
-const sequelize = new Sequelize('database', 'user', 'password', {
-  host: 'localhost',
-  dialect: 'sqlite',
-  logging: false,
-  storage: 'database.sqlite',
-});
+const sequelize = new Sequelize(
+  config.database.name,
+  config.database.user,
+  config.database.password,
+  {
+    host: config.database.host,
+    dialect: config.database.dialect,
+    logging: false,
+    storage: config.database.storage,
+  },
+);
+
 const TempRole = require(`${global.appRoot}/models/tempRole`)(sequelize);
 
 client.once('ready', async () => {
   await TempRole.sync(/* { force: true } */);
 
-  console.log(`😃 ${`~~${env}Squiggle~~`.red.bold}${' is online!'.red}`);
+  console.log(`😃${config.namePrefix}Squiggle`.red.bold + ' is online!'.red);
 
   const commandsFiles = fs.readdirSync(path.join(__dirname, './commands'));
 
@@ -44,7 +61,7 @@ client.once('ready', async () => {
     commands = [
       ...commands,
       {
-        name: file.split('.')[0],
+        name: `${config.commandPrefix || ''}${commandTmp[i].commandName || file.split('.')[0]}`,
         description: commandTmp[i].description,
         init: commandTmp[i].init,
         options: commandTmp[i].options,
@@ -61,6 +78,9 @@ client.once('ready', async () => {
 
   if (workersFiles.length > 0) {
     console.log('✅ Workers registered!'.gray);
+    workersFiles.forEach((file) => {
+      console.log(`  - ${file}`.white);
+    });
   }
 
   rest.put(
@@ -68,6 +88,9 @@ client.once('ready', async () => {
     { body: commands },
   ).then(() => {
     console.log('✅ Commands registered!'.gray);
+    commands.forEach((command) => {
+      console.log(`  - /${command.name}: `.white + `${command.description}`.gray);
+    });
   })
     .catch(console.error);
 });
@@ -77,13 +100,24 @@ client.on('interactionCreate', async (interaction) => {
     return;
   }
 
-  const { commandName } = interaction;
-  const selectedCommand = commands.find((c) => commandName === c.name);
-  selectedCommand.init(interaction, client, sequelize);
+  const { commandName, channel } = interaction;
+
+  if (canPostInChannel(channel.name)) {
+    const selectedCommand = commands.find((c) => commandName === c.name);
+    selectedCommand.init(interaction, client, sequelize);
+  } else {
+    await interaction.reply({ content: 'This bot is not allowed to post in this channel.', ephemeral: true });
+  }
 });
 
 client.on('messageReactionAdd', async (reaction) => {
-  reactionRoles.forEach(async (reactionRole) => {
+  const { channel } = reaction.message;
+
+  if (!canPostInChannel(channel.name)) {
+    return;
+  }
+
+  config.workers.reactionRoles.forEach(async (reactionRole) => {
     if (
       reaction.emoji.name === reactionRole.emojiName
       && reaction.count === reactionRole.threshold
@@ -127,4 +161,4 @@ client.on('messageReactionAdd', async (reaction) => {
 });
 
 // run
-client.login(token);
+client.login(config.discord.token);

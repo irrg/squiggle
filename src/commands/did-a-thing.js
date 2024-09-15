@@ -1,10 +1,10 @@
-// Discord.js
 const { Constants, MessageEmbed } = require('discord.js');
+const config = require('../../config.json');
 
 const { STRING } = Constants.ApplicationCommandOptionTypes;
 
 const description = 'Share that you did a thing!';
-const things = require(`${global.appRoot}/../did-a-thing.json`);
+const things = config.commands.didAThing;
 const options = [
   {
     name: 'thing',
@@ -71,8 +71,11 @@ const init = async (interaction, client, sequelize) => {
   }
 };
 
+const commandName = 'did-a-thing';
+
 module.exports = {
   init,
   description,
   options,
+  commandName,
 };

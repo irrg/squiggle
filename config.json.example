@@ -1,5 +1,42 @@
 {
-	"clientId": "",
-	"guildId": "",
-	"token": ""
+  "discord": {
+    "token": ""
+  },
+  "bot": {
+    "env": "",
+    "namePrefix": "",
+    "commandPrefix": "",
+    // NOTE:
+    // only use one:
+    "whitelist": [],
+    // OR
+    "blacklist": [],
+  },
+  "database": {
+    "name": "",
+    "user": "",
+    "password": "",
+    "host": "",
+    "dialect": "",
+    "storage": ""
+  },
+  "commands": {
+    "didAThing": [
+      { 
+        "name": "(name we call it)", 
+        "role": "(name of role in Discord)",
+        "color": "#RGBCOL"
+      }
+    ],
+  },
+  workers: {
+    "reactionRoles": [
+      {
+        "emojiName": "🤷",
+        "threshold": 4, // how many reactions are needed to trigger
+        "roleName": "(name of role in Discord)",
+        "color": "#RGBCOL"
+      }
+    ]
+  },
 }
