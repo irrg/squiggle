@@ -82,21 +82,17 @@ client.once("ready", async () => {
   await Promise.all(workerPromises);
 
   if (workersFiles.length > 0) {
-    const workerMessages = ["💪 Workers registered!"];
-    workersFiles.forEach((file) => {
-      workerMessages.push(`  - ${file}`);
-    });
-    sendDebugMessage(client, workerMessages, { color: 'gray' });
+    sendDebugMessage(client, "Workers registered!", { color: 'gray', emoji: '💪' });
+    const workerMessages = workersFiles.map((file) => `${file}`);
+    sendDebugMessage(client, workerMessages, { suboption: true });
   }
 
   // Register commands with Discord API
   try {
     await rest.put(Routes.applicationCommands(client.application.id), { body: commands });
-    const commandMessages = ["⌨️ Commands registered!"];
-    commands.forEach((command) => {
-      commandMessages.push(`  - /${command.name}: ${command.description}`);
-    });
-    sendDebugMessage(client, commandMessages, { color: 'gray' });
+    sendDebugMessage(client, "Commands registered!", { color: 'gray', emoji: '⌨️' });
+    const commandMessages = commands.map((command) => `\`/${command.name}\`: ${command.description}`);
+    sendDebugMessage(client, commandMessages, { suboption: true });
   } catch (error) {
     console.error("Error registering commands:", error);
     await sendDebugMessage(
