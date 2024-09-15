@@ -1,4 +1,4 @@
-const { Op } = require('sequelize');
+const { Op } = require("sequelize");
 
 const run = async (client, sequelize) => {
   const TempRole = require(`${global.appRoot}/models/tempRole`)(sequelize);
@@ -24,15 +24,17 @@ const run = async (client, sequelize) => {
       const memberName = member.nickname || member.user.username;
       console.log(`Removing role ${role.name} from member ${memberName}`);
       member.roles.remove(role);
-      const tempRoleDeletion = await TempRole.destroy({ where: { id: tempRole.id } });
+      const tempRoleDeletion = await TempRole.destroy({
+        where: { id: tempRole.id },
+      });
       if (tempRoleDeletion > 0) {
         console.log(`removed tempRole table row ${tempRole.id}`);
       } else {
-        console.log('deletion went wrong');
+        console.log("deletion went wrong");
       }
     });
   } catch (error) {
-    console.log('did-a-thing worker error');
+    console.log("did-a-thing worker error");
     console.log(error);
   }
 };
