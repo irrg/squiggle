@@ -200,15 +200,12 @@ client.on("messageReactionAdd", async (reaction, user) => {
 
         let expirationTime;
         if (existingTempRole) {
-          // Check if the reaction count has increased
-          if (reaction.count > existingTempRole.reactionCount) {
-            // Update the expiration time by adding 2 hours
-            expirationTime = new Date(existingTempRole.expirationTime.getTime() + 2 * 60 * 60 * 1000);
-            await existingTempRole.update({ expirationTime, reactionCount: reaction.count });
+          // Update the expiration time by adding 2 hours
+          expirationTime = new Date(existingTempRole.expirationTime.getTime() + 2 * 60 * 60 * 1000);
+          await existingTempRole.update({ expirationTime });
 
-            // Send a message to the channel
-            await message.reply(`${extenderName} extended your role by two hours`);
-          }
+          // Send a message to the channel
+          await message.reply(`${extenderName} extended your role by two hours`);
         } else {
           // Set the expiration time to 24 hours from now
           expirationTime = new Date(new Date().getTime() + 24 * 60 * 60 * 1000);
@@ -222,7 +219,6 @@ client.on("messageReactionAdd", async (reaction, user) => {
             roleName: role.name,
             messageId: message.id, // Store the message ID
             expirationTime,
-            reactionCount: reaction.count, // Store the initial reaction count
           });
 
           // Add the role to the member
