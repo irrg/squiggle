@@ -21,7 +21,7 @@ const client = new Client({
 });
 
 // Initialize the REST client for Discord API
-const rest = new REST({ version: "9" }).setToken(config.discord.token);
+const rest = new REST({ version: "9" }).setToken(process.env.DISCORD_TOKEN);
 
 const workerTmp = [];
 const commandTmp = [];
@@ -31,10 +31,15 @@ global.appRoot = path.resolve(__dirname);
 
 // Initialize Sequelize for database interaction
 const sequelize = new Sequelize(
-  config.database.database,
-  config.database.user,
-  config.database.password,
-  config.database.options
+  process.env.DB_NAME,
+  process.env.DB_USER,
+  process.env.DB_PASSWORD,
+  {
+    host: process.env.DB_HOST,
+    dialect: process.env.DB_DIALECT,
+    storage: process.env.DB_STORAGE,
+    logging: false,
+  }
 );
 
 // Import the TempRole model
@@ -214,4 +219,4 @@ client.on("messageReactionAdd", async (reaction) => {
 });
 
 // Log in to Discord
-client.login(config.discord.token);
+client.login(process.env.DISCORD_TOKEN);
