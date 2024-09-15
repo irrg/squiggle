@@ -169,9 +169,12 @@ client.on("messageReactionAdd", async (reaction, user) => {
   // Fetch the message if it's not cached
   if (message.partial) {
     try {
-      message = await message.fetch();
+      await message.fetch();
     } catch (error) {
-      console.error("Error fetching message:", error);
+      await sendDebugMessage(
+        client,
+        `Error fetching message: ${error.message}`
+      );
       return;
     }
   }
@@ -190,7 +193,10 @@ client.on("messageReactionAdd", async (reaction, user) => {
           (findableRole) => findableRole.name === reactionRole.roleName
         );
         if (!role) {
-          console.error(`Role ${reactionRole.roleName} not found`);
+          await sendDebugMessage(
+            client,
+            `Role ${reactionRole.roleName} not found`
+          );
           return;
         }
 
@@ -198,7 +204,10 @@ client.on("messageReactionAdd", async (reaction, user) => {
           (findableMember) => findableMember.id === message.author.id
         );
         if (!member) {
-          console.error(`Member ${message.author.id} not found`);
+          await sendDebugMessage(
+            client,
+            `Member ${message.author.id} not found`
+          );
           return;
         }
 
@@ -275,7 +284,6 @@ client.on("messageReactionAdd", async (reaction, user) => {
           }
         }
       } catch (error) {
-        console.error(error);
         await sendDebugMessage(
           client,
           `Error handling reaction: ${JSON.stringify(error, null, 2)}`
