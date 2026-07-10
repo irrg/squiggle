@@ -8,9 +8,6 @@ const run = async (client, sequelize) => {
   await TempRole.sync();
 
   try {
-    // find all old jobs
-    // remove all the roles
-    // delete the jobs
     const tempRoles = await TempRole.findAll({
       raw: true,
       where: {
@@ -20,70 +17,68 @@ const run = async (client, sequelize) => {
       },
     });
 
-    tempRoles.forEach(async (tempRole) => {
-      const guild = client.guilds.cache.get(tempRole.guildId);
-      const role = guild.roles.cache.get(tempRole.roleId);
-      const member = await guild.members.fetch(tempRole.memberId);
-      const memberName = member.nickname || member.user.username;
+    await Promise.all(
+      tempRoles.map(async (tempRole) => {
+        const guild = client.guilds.cache.get(tempRole.guildId);
+        const role = guild.roles.cache.get(tempRole.roleId);
+        const member = await guild.members.fetch(tempRole.memberId);
+        const memberName = member.nickname || member.user.username;
 
-      // Check if there is another row that expires after the current row
-      const laterTempRole = await TempRole.findOne({
-        where: {
-          guildId: tempRole.guildId,
-          memberId: tempRole.memberId,
-          roleId: tempRole.roleId,
-          expirationTime: {
-            [Op.gt]: tempRole.expirationTime,
-          },
-        },
-      });
-
-      if (laterTempRole) {
-        // If there is a later expiration, only delete the current row
-        const tempRoleDeletion = await TempRole.destroy({
-          where: { id: tempRole.id },
-        });
-        if (tempRoleDeletion > 0) {
-          const deletionMessage = `removed tempRole table row ${tempRole.id}`;
-          console.log(deletionMessage);
-          await sendDebugMessage(client, deletionMessage);
-        } else {
-          const errorMessage = "deletion went wrong";
-          console.log(errorMessage);
-          await sendDebugMessage(client, errorMessage);
-        }
-      } else {
-        // If there is no later expiration, remove the role and delete the row
-        const message = `Removing role ${role.name} from member ${memberName}`;
-        console.log(message);
-        await sendDebugMessage(client, message);
-        member.roles.remove(role);
-
-        // Remove all rows for this member, role, guild, and message combination
-        const tempRoleDeletions = await TempRole.destroy({
+        const laterTempRole = await TempRole.findOne({
           where: {
             guildId: tempRole.guildId,
             memberId: tempRole.memberId,
             roleId: tempRole.roleId,
-            messageId: tempRole.messageId,
+            expirationTime: {
+              [Op.gt]: tempRole.expirationTime,
+            },
           },
         });
-        if (tempRoleDeletions > 0) {
-          const deletionMessage = `removed ${tempRoleDeletions} tempRole table row(s) for member ${memberName}, role ${role.name}, and message ${tempRole.messageId}`;
-          console.log(deletionMessage);
-          await sendDebugMessage(client, deletionMessage);
+
+        if (laterTempRole) {
+          const deleted = await TempRole.destroy({
+            where: { id: tempRole.id },
+          });
+          if (deleted > 0) {
+            const msg = `removed tempRole table row ${tempRole.id}`;
+            console.log(msg);
+            await sendDebugMessage(client, msg);
+          } else {
+            const msg = "deletion went wrong";
+            console.log(msg);
+            await sendDebugMessage(client, msg);
+          }
         } else {
-          const errorMessage = "deletion went wrong";
-          console.log(errorMessage);
-          await sendDebugMessage(client, errorMessage);
+          const msg = `Removing role ${role.name} from member ${memberName}`;
+          console.log(msg);
+          await sendDebugMessage(client, msg);
+          await member.roles.remove(role);
+
+          const deleted = await TempRole.destroy({
+            where: {
+              guildId: tempRole.guildId,
+              memberId: tempRole.memberId,
+              roleId: tempRole.roleId,
+              messageId: tempRole.messageId,
+            },
+          });
+          if (deleted > 0) {
+            const msg2 = `removed ${deleted} tempRole table row(s) for member ${memberName}, role ${role.name}, and message ${tempRole.messageId}`;
+            console.log(msg2);
+            await sendDebugMessage(client, msg2);
+          } else {
+            const msg2 = "deletion went wrong";
+            console.log(msg2);
+            await sendDebugMessage(client, msg2);
+          }
         }
-      }
-    });
+      }),
+    );
   } catch (error) {
-    const errorMessage = "did-a-thing worker error";
-    console.log(errorMessage);
+    const msg = "did-a-thing worker error";
+    console.log(msg);
     console.log(error);
-    await sendDebugMessage(client, `${errorMessage}: ${error.message}`);
+    await sendDebugMessage(client, `${msg}: ${error.message}`);
   }
 };
 

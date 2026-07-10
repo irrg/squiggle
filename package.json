@@ -11,7 +11,9 @@
     "dev:watch": "cross-env NODE_ENV=development NODE_NO_WARNINGS=1 nodemon .",
     "build": "pkg .",
     "lint": "eslint .",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "author": "Robb Irrgang <robb@irrgardless.com>",
   "license": "",
@@ -38,7 +40,8 @@
     "globals": "^17.7.0",
     "nodemon": "^3.1.14",
     "pkg": "^5.7.0",
-    "prettier": "^3.9.5"
+    "prettier": "^3.9.5",
+    "vitest": "^4.1.10"
   },
   "pkg": {
     "outputPath": "dist",
