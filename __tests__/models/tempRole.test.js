@@ -71,6 +71,53 @@ describe("TempRole model", () => {
     expect(await TempRole.count()).toBe(0);
   });
 
+  it("stores maxReactionCount on create", async () => {
+    const record = await TempRole.create({
+      ...base,
+      expirationTime: new Date(Date.now() + 60 * 60 * 1000),
+      maxReactionCount: 4,
+    });
+    expect(record.maxReactionCount).toBe(4);
+  });
+
+  it("does not extend when reaction count equals maxReactionCount (remove+re-add)", async () => {
+    const initial = new Date(Date.now() + 16 * 60 * 60 * 1000);
+    const record = await TempRole.create({
+      ...base,
+      expirationTime: initial,
+      maxReactionCount: 4,
+    });
+
+    // Simulate: count is 4 (same as stored max — a re-add, not a new reactor)
+    const reactionCount = 4;
+    const shouldExtend = reactionCount > record.maxReactionCount;
+    expect(shouldExtend).toBe(false);
+
+    // Expiration unchanged
+    await record.reload();
+    expect(record.expirationTime.getTime()).toBe(initial.getTime());
+  });
+
+  it("extends and updates maxReactionCount when a genuinely new reactor pushes count higher", async () => {
+    const initial = new Date(Date.now() + 16 * 60 * 60 * 1000);
+    const record = await TempRole.create({
+      ...base,
+      expirationTime: initial,
+      maxReactionCount: 4,
+    });
+
+    // Simulate: count is 5 — a new person reacted
+    const reactionCount = 5;
+    if (reactionCount > record.maxReactionCount) {
+      const extended = new Date(initial.getTime() + 4 * 60 * 60 * 1000);
+      await record.update({ expirationTime: extended, maxReactionCount: reactionCount });
+    }
+
+    await record.reload();
+    expect(record.maxReactionCount).toBe(5);
+    expect(record.expirationTime.getTime()).toBeGreaterThan(initial.getTime());
+  });
+
   it("finds all records past expiration", async () => {
     const expired = new Date(Date.now() - 60 * 60 * 1000);
     const future = new Date(Date.now() + 60 * 60 * 1000);

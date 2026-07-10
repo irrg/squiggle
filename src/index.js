@@ -227,7 +227,9 @@ client.on("messageReactionAdd", async (reaction, user) => {
         const { threshold } = reactionRole;
 
         if (existingTempRole) {
-          if (reaction.count >= threshold) {
+          // Only extend if this is a genuinely new reactor — count must exceed
+          // the previous high-water mark to prevent remove+re-add gaming
+          if (reaction.count > existingTempRole.maxReactionCount) {
             if (!existingTempRole.expirationTime) {
               throw new Error(
                 `TempRole ${existingTempRole.id} has null expirationTime`,
@@ -236,7 +238,10 @@ client.on("messageReactionAdd", async (reaction, user) => {
             const expirationTime = new Date(
               existingTempRole.expirationTime.getTime() + 4 * 60 * 60 * 1000,
             );
-            await existingTempRole.update({ expirationTime });
+            await existingTempRole.update({
+              expirationTime,
+              maxReactionCount: reaction.count,
+            });
             await message.reply(
               `${extenderName} extended your role by four hours`,
             );
@@ -258,6 +263,7 @@ client.on("messageReactionAdd", async (reaction, user) => {
                 roleName: role.name,
                 messageId: message.id,
                 expirationTime,
+                maxReactionCount: reaction.count,
               });
             } catch (dbError) {
               await member.roles.remove(role).catch(() => {});
