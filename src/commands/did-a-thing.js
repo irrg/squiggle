@@ -29,9 +29,24 @@ const init = async (interaction, client, sequelize) => {
   const thing = interaction.options.getString("thing");
   const caption = interaction.options.getString("caption");
   const thingObject = things.find(({ name }) => name === thing);
+
+  if (!thingObject) {
+    await interaction.reply({ content: "Unknown thing.", ephemeral: true });
+    return;
+  }
+
   const role = member.guild.roles.cache.find(
     ({ name }) => name === thingObject.role,
   );
+
+  if (!role) {
+    await interaction.reply({
+      content: `Role "${thingObject.role}" not found.`,
+      ephemeral: true,
+    });
+    return;
+  }
+
   const expirationDateTime = new Date(
     new Date().getTime() + 24 * 60 * 60 * 1000,
   );
@@ -41,7 +56,6 @@ const init = async (interaction, client, sequelize) => {
   ).default(sequelize);
 
   await interaction.deferReply();
-  await TempRole.sync();
 
   const memberName = member.nickname || member.user.username;
 
@@ -55,7 +69,7 @@ const init = async (interaction, client, sequelize) => {
       expirationTime: expirationDateTime,
     });
 
-    member.roles.add(role);
+    await member.roles.add(role);
 
     const embed = new EmbedBuilder()
       .setTitle(`${memberName} ${thingObject.role.replace(/People who /g, "")}`)
@@ -68,12 +82,14 @@ const init = async (interaction, client, sequelize) => {
       .setTimestamp();
 
     const reply = await interaction.editReply({ embeds: [embed] });
-    reply.react("🙌");
+    await reply.react("🙌");
 
     return reply;
   } catch (error) {
     console.log(error);
-    return interaction.reply("Something went wrong with storing a tempRole.");
+    return interaction.editReply(
+      "Something went wrong with storing a tempRole.",
+    );
   }
 };
 

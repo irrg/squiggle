@@ -5,9 +5,8 @@ vi.mock("../../config/config.json", () => ({
   default: { bot: mockBotConfig },
 }));
 
-const { default: canPostInChannel } = await import(
-  "../../src/utils/canPostInChannel.js"
-);
+const { default: canPostInChannel } =
+  await import("../../src/utils/canPostInChannel.js");
 
 describe("canPostInChannel", () => {
   beforeEach(() => {

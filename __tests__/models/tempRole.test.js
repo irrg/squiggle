@@ -110,7 +110,10 @@ describe("TempRole model", () => {
     const reactionCount = 5;
     if (reactionCount > record.maxReactionCount) {
       const extended = new Date(initial.getTime() + 4 * 60 * 60 * 1000);
-      await record.update({ expirationTime: extended, maxReactionCount: reactionCount });
+      await record.update({
+        expirationTime: extended,
+        maxReactionCount: reactionCount,
+      });
     }
 
     await record.reload();

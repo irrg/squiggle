@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import sendDebugMessage from "../../src/utils/sendDebugMessage.js";
 
 const makeClient = (channelFound = true) => {

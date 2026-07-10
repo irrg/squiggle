@@ -5,7 +5,6 @@ const run = async (client, sequelize) => {
   const TempRole = (
     await import(`${global.appRoot}/src/models/tempRole.js`)
   ).default(sequelize);
-  await TempRole.sync();
 
   try {
     const tempRoles = await TempRole.findAll({

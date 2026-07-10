@@ -44,7 +44,7 @@ import TempRoleModel from "./models/tempRole.js";
 const TempRole = TempRoleModel(sequelize);
 
 client.once("ready", async () => {
-  await TempRole.sync();
+  await TempRole.sync({ alter: true });
 
   const now = new Date();
   const formattedDate = formatInTimeZone(
