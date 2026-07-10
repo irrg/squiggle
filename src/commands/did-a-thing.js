@@ -1,5 +1,5 @@
 import { ApplicationCommandOptionType, EmbedBuilder } from "discord.js";
-import config from "../../config/config.json" assert { type: "json" };
+import config from "../../config/config.json" with { type: "json" };
 
 const { String } = ApplicationCommandOptionType;
 
@@ -30,10 +30,10 @@ const init = async (interaction, client, sequelize) => {
   const caption = interaction.options.getString("caption");
   const thingObject = things.find(({ name }) => name === thing);
   const role = member.guild.roles.cache.find(
-    ({ name }) => name === thingObject.role
+    ({ name }) => name === thingObject.role,
   );
   const expirationDateTime = new Date(
-    new Date().getTime() + 24 * 60 * 60 * 1000
+    new Date().getTime() + 24 * 60 * 60 * 1000,
   );
 
   const TempRole = (

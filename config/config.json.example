@@ -10,7 +10,7 @@
     // only use one:
     "whitelist": [],
     // OR
-    "blacklist": [],
+    "blacklist": []
   },
   "database": {
     "name": "",
@@ -22,14 +22,14 @@
   },
   "commands": {
     "didAThing": [
-      { 
-        "name": "(name we call it)", 
+      {
+        "name": "(name we call it)",
         "role": "(name of role in Discord)",
         "color": "#RGBCOL"
       }
-    ],
+    ]
   },
-  workers: {
+  "workers": {
     "reactionRoles": [
       {
         "emojiName": "🤷",
@@ -38,5 +38,5 @@
         "color": "#RGBCOL"
       }
     ]
-  },
+  }
 }
