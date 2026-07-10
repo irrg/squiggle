@@ -26,8 +26,6 @@ const client = new Client({
 // Initialize the REST client for Discord API
 const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
 
-const workerTmp = [];
-const commandTmp = [];
 let commands = [];
 
 global.appRoot = path.resolve();
