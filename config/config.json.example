@@ -37,6 +37,14 @@
         "roleName": "(name of role in Discord)",
         "color": "#RGBCOL"
       }
+    ],
+    "combinedReactionRoles": [
+      {
+        "emojiNames": ["TheBest", "TheWorst"], // all must hit threshold
+        "threshold": 4,
+        "roleName": "(name of role in Discord)",
+        "color": "#RGBCOL"
+      }
     ]
   }
 }

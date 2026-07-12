@@ -298,6 +298,113 @@ client.on("messageReactionAdd", async (reaction, user) => {
       }
     }),
   );
+
+  // Check combined reaction role conditions (e.g. both TheBest + TheWorst)
+  const combinedRoles = config.workers.combinedReactionRoles ?? [];
+  await Promise.all(
+    combinedRoles.map(async (combinedRole) => {
+      try {
+        const { guild } = message;
+
+        const counts = combinedRole.emojiNames.map((emojiName) => {
+          const r = message.reactions.cache.find(
+            (rc) => rc.emoji.name === emojiName,
+          );
+          return r ? r.count : 0;
+        });
+
+        if (!counts.every((count) => count >= combinedRole.threshold)) {
+          return;
+        }
+
+        const role = guild.roles.cache.find(
+          (r) => r.name === combinedRole.roleName,
+        );
+        if (!role) {
+          await sendDebugMessage(
+            client,
+            `Combined role ${combinedRole.roleName} not found`,
+          );
+          return;
+        }
+
+        const member = await guild.members.fetch(message.author.id);
+        const memberName = member.nickname || member.user.username;
+
+        const existingTempRole = await TempRole.findOne({
+          where: {
+            guildId: guild.id,
+            memberId: member.id,
+            roleId: role.id,
+            messageId: message.id,
+          },
+        });
+
+        const combinedCount = counts.reduce((sum, c) => sum + c, 0);
+
+        if (existingTempRole) {
+          if (combinedCount > existingTempRole.maxReactionCount) {
+            if (!existingTempRole.expirationTime) {
+              throw new Error(
+                `TempRole ${existingTempRole.id} has null expirationTime`,
+              );
+            }
+            const expirationTime = new Date(
+              existingTempRole.expirationTime.getTime() + 4 * 60 * 60 * 1000,
+            );
+            await existingTempRole.update({
+              expirationTime,
+              maxReactionCount: combinedCount,
+            });
+            await message.reply(
+              `${memberName}'s role was extended by four hours`,
+            );
+          }
+        } else {
+          const expirationTime = new Date(
+            new Date().getTime() + 16 * 60 * 60 * 1000,
+          );
+          await member.roles.add(role);
+          try {
+            await TempRole.create({
+              guildId: guild.id,
+              memberId: member.id,
+              memberName,
+              roleId: role.id,
+              roleName: role.name,
+              messageId: message.id,
+              expirationTime,
+              maxReactionCount: combinedCount,
+            });
+          } catch (dbError) {
+            await member.roles.remove(role).catch(() => {});
+            throw dbError;
+          }
+
+          const embed = new EmbedBuilder()
+            .setTitle(
+              `${memberName} ${combinedRole.roleName.replace(/People who are |people who /gi, "")}`,
+            )
+            .setColor(combinedRole.color)
+            .setAuthor({
+              name: memberName,
+              iconURL: member.displayAvatarURL(),
+            })
+            .setTimestamp();
+
+          await message.reply({ embeds: [embed] });
+        }
+      } catch (error) {
+        await sendDebugMessage(
+          client,
+          `Error handling combined reaction: ${JSON.stringify(error, null, 2)}`,
+        );
+        await message.channel.send(
+          "Something went wrong with a combined role.",
+        );
+      }
+    }),
+  );
 });
 
 client.login(process.env.DISCORD_TOKEN);
