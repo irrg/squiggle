@@ -1,11 +1,11 @@
 import js from "@eslint/js";
 import globals from "globals";
 import prettierRecommended from "eslint-plugin-prettier/recommended";
-import importPlugin from "eslint-plugin-import";
+import { flatConfigs as importFlatConfigs } from "eslint-plugin-import-x";
 
 export default [
   js.configs.recommended,
-  importPlugin.flatConfigs.recommended,
+  importFlatConfigs.recommended,
   prettierRecommended,
   {
     languageOptions: {
@@ -20,7 +20,7 @@ export default [
     rules: {
       "no-console": "off",
       "prettier/prettier": "error",
-      "import/no-unresolved": "off",
+      "import-x/no-unresolved": "off",
     },
   },
 ];
