@@ -96,6 +96,42 @@ describe("temp-roles worker", () => {
     expect(remaining.messageId).toBe("msg-2");
   });
 
+  it("destroys orphaned row and skips role removal when guild not in cache", async () => {
+    await TempRole.create({
+      ...base,
+      expirationTime: new Date(Date.now() - 60 * 60 * 1000),
+    });
+    mockClient.guilds.cache.get.mockReturnValueOnce(undefined);
+
+    await run(mockClient, sequelize);
+
+    expect(mockMember.roles.remove).not.toHaveBeenCalled();
+    expect(await TempRole.count()).toBe(0);
+  });
+
+  it("destroys orphaned row and skips role removal when role not in cache", async () => {
+    await TempRole.create({
+      ...base,
+      expirationTime: new Date(Date.now() - 60 * 60 * 1000),
+    });
+    mockGuild.roles.cache.get.mockReturnValueOnce(undefined);
+
+    await run(mockClient, sequelize);
+
+    expect(mockMember.roles.remove).not.toHaveBeenCalled();
+    expect(await TempRole.count()).toBe(0);
+  });
+
+  it("catches errors and does not throw", async () => {
+    await TempRole.create({
+      ...base,
+      expirationTime: new Date(Date.now() - 60 * 60 * 1000),
+    });
+    mockGuild.members.fetch.mockRejectedValueOnce(new Error("fetch failed"));
+
+    await expect(run(mockClient, sequelize)).resolves.toBeUndefined();
+  });
+
   it("handles multiple expired roles in one pass", async () => {
     await TempRole.create({
       ...base,
