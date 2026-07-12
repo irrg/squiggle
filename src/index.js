@@ -202,6 +202,8 @@ client.on("messageReactionAdd", async (reaction, user) => {
     messageAuthorId = sourceRole.memberId;
   }
 
+  if (user.id === messageAuthorId) return;
+
   await Promise.all(
     config.workers.reactionRoles.map(async (reactionRole) => {
       if (reaction.emoji.name !== reactionRole.emojiName) {
