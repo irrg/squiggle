@@ -185,10 +185,21 @@ client.on("messageReactionAdd", async (reaction, user) => {
     }
   }
 
-  const { channel } = message;
+  const { channel, guild } = message;
 
   if (!canPostInChannel(channel.name)) {
     return;
+  }
+
+  // Bot-authored messages (e.g. /did-a-thing replies) have the bot as author;
+  // look up the real member from the stored TempRole instead.
+  let messageAuthorId = message.author.id;
+  if (message.author?.bot) {
+    const sourceRole = await TempRole.findOne({
+      where: { messageId: message.id },
+    });
+    if (!sourceRole) return;
+    messageAuthorId = sourceRole.memberId;
   }
 
   await Promise.all(
@@ -198,7 +209,6 @@ client.on("messageReactionAdd", async (reaction, user) => {
       }
 
       try {
-        const { guild } = message;
         const role = guild.roles.cache.find(
           (findableRole) => findableRole.name === reactionRole.roleName,
         );
@@ -216,7 +226,7 @@ client.on("messageReactionAdd", async (reaction, user) => {
         const { threshold } = reactionRole;
 
         // Fetch from API instead of cache to guarantee the member is found
-        const member = await guild.members.fetch(message.author.id);
+        const member = await guild.members.fetch(messageAuthorId);
         const memberName = member.nickname || member.user.username;
 
         const extenderMember = await guild.members.fetch(user.id);
@@ -323,8 +333,6 @@ client.on("messageReactionAdd", async (reaction, user) => {
   await Promise.all(
     combinedRoles.map(async (combinedRole) => {
       try {
-        const { guild } = message;
-
         const counts = combinedRole.emojiNames.map((emojiName) => {
           const r = message.reactions.cache.find(
             (rc) => rc.emoji.name === emojiName,
@@ -347,7 +355,7 @@ client.on("messageReactionAdd", async (reaction, user) => {
           return;
         }
 
-        const member = await guild.members.fetch(message.author.id);
+        const member = await guild.members.fetch(messageAuthorId);
         const memberName = member.nickname || member.user.username;
 
         const existingTempRole = await TempRole.findOne({
