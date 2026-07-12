@@ -21,6 +21,10 @@ const TempRoleModel = (sequelize) => {
       type: DataTypes.INTEGER,
       defaultValue: 0,
     },
+    source: {
+      type: DataTypes.STRING,
+      defaultValue: "reaction",
+    },
   });
 
   return TempRole;

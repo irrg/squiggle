@@ -60,15 +60,6 @@ const init = async (interaction, client, sequelize) => {
   const memberName = member.nickname || member.user.username;
 
   try {
-    await TempRole.create({
-      guildId: member.guild.id,
-      memberId: member.id,
-      memberName,
-      roleId: role.id,
-      roleName: role.name,
-      expirationTime: expirationDateTime,
-    });
-
     await member.roles.add(role);
 
     const embed = new EmbedBuilder()
@@ -83,6 +74,27 @@ const init = async (interaction, client, sequelize) => {
 
     const reply = await interaction.editReply({ embeds: [embed] });
     await reply.react("🙌");
+
+    try {
+      await TempRole.create({
+        guildId: member.guild.id,
+        memberId: member.id,
+        memberName,
+        roleId: role.id,
+        roleName: role.name,
+        messageId: reply.id,
+        expirationTime: expirationDateTime,
+        source: "command",
+      });
+    } catch (dbError) {
+      await member.roles.remove(role).catch(() => {});
+      await interaction.followUp({
+        content:
+          "Something went wrong saving your progress. Role has been removed.",
+        ephemeral: true,
+      });
+      console.error(dbError);
+    }
 
     return reply;
   } catch (error) {
