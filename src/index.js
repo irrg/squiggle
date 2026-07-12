@@ -5,12 +5,12 @@ import { Client, GatewayIntentBits, Partials } from "discord.js";
 import { Routes } from "discord-api-types/v10";
 import fs from "fs";
 import path from "path";
-import { Sequelize } from "sequelize";
 import { formatInTimeZone } from "date-fns-tz";
 import config from "../config/config.json" with { type: "json" };
 import canPostInChannel from "./utils/canPostInChannel.js";
 import sendDebugMessage from "./utils/sendDebugMessage.js";
 import { handleReactionAdd, handleReactionRemove } from "./handlers/reactions.js";
+import createDB from "./models/tempRole.js";
 import "colors";
 
 const client = new Client({
@@ -27,26 +27,9 @@ const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
 
 let commands = [];
 
-global.appRoot = path.resolve();
-
-const sequelize = new Sequelize(
-  process.env.DB_NAME,
-  process.env.DB_USER,
-  process.env.DB_PASSWORD,
-  {
-    host: process.env.DB_HOST,
-    dialect: process.env.DB_DIALECT,
-    storage: process.env.DB_STORAGE,
-    logging: false,
-  },
-);
-
-import TempRoleModel from "./models/tempRole.js";
-const TempRole = TempRoleModel(sequelize);
+const db = createDB(process.env.DB_STORAGE);
 
 client.once("clientReady", async () => {
-  await TempRole.sync({ alter: true });
-
   const now = new Date();
   const formattedDate = formatInTimeZone(
     now,
@@ -59,9 +42,9 @@ client.once("clientReady", async () => {
     { emoji: "😃", color: "red", bold: true },
   );
 
-  const commandsFiles = fs.readdirSync(
-    path.join(global.appRoot, "./src/commands"),
-  );
+  const appRoot = path.resolve();
+
+  const commandsFiles = fs.readdirSync(path.join(appRoot, "./src/commands"));
   const commandPromises = commandsFiles.map(async (file) => {
     const commandModule = await import(`./commands/${file}`);
     const commandName = commandModule.commandName || file.split(".")[0];
@@ -75,9 +58,7 @@ client.once("clientReady", async () => {
 
   commands = await Promise.all(commandPromises);
 
-  const workersFiles = fs.readdirSync(
-    path.join(global.appRoot, "./src/workers"),
-  );
+  const workersFiles = fs.readdirSync(path.join(appRoot, "./src/workers"));
   const workerPromises = workersFiles.map(async (file) => {
     const workerModule = await import(`./workers/${file}`);
     if (
@@ -90,7 +71,7 @@ client.once("clientReady", async () => {
       return;
     }
     setInterval(() => {
-      workerModule.run(client, sequelize);
+      workerModule.run(client, db);
     }, workerModule.interval);
   });
 
@@ -149,7 +130,7 @@ client.on("interactionCreate", async (interaction) => {
   }
 
   try {
-    await selectedCommand.init(interaction, client, sequelize);
+    await selectedCommand.init(interaction, client, db);
   } catch (error) {
     console.error(error);
     await sendDebugMessage(
@@ -170,11 +151,11 @@ client.on("interactionCreate", async (interaction) => {
 });
 
 client.on("messageReactionAdd", (reaction, user) =>
-  handleReactionAdd(reaction, user, { client, TempRole, config }),
+  handleReactionAdd(reaction, user, { client, TempRole: db, config }),
 );
 
 client.on("messageReactionRemove", (reaction, user) =>
-  handleReactionRemove(reaction, user, { client, TempRole, config }),
+  handleReactionRemove(reaction, user, { client, TempRole: db, config }),
 );
 
 client.login(process.env.DISCORD_TOKEN);

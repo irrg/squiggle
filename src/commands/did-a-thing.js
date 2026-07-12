@@ -24,7 +24,7 @@ const options = [
   },
 ];
 
-const init = async (interaction, client, sequelize) => {
+const init = async (interaction, client, db) => {
   const { member } = interaction;
   const thing = interaction.options.getString("thing");
   const caption = interaction.options.getString("caption");
@@ -51,10 +51,6 @@ const init = async (interaction, client, sequelize) => {
     new Date().getTime() + 24 * 60 * 60 * 1000,
   );
 
-  const TempRole = (
-    await import(`${global.appRoot}/src/models/tempRole.js`)
-  ).default(sequelize);
-
   await interaction.deferReply();
 
   const memberName = member.nickname || member.user.username;
@@ -76,7 +72,7 @@ const init = async (interaction, client, sequelize) => {
     await reply.react("🙌");
 
     try {
-      await TempRole.create({
+      db.create({
         guildId: member.guild.id,
         memberId: member.id,
         memberName,

@@ -1,6 +1,5 @@
-import { describe, it, expect, vi, beforeAll, beforeEach } from "vitest";
-import { Sequelize } from "sequelize";
-import TempRoleModel from "../../src/models/tempRole.js";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import createDB from "../../src/models/tempRole.js";
 
 vi.mock("../../config/config.json", () => ({
   default: {
@@ -26,21 +25,15 @@ vi.mock("discord.js", () => ({
 
 const { init } = await import("../../src/commands/did-a-thing.js");
 
-const sequelize = new Sequelize({
-  dialect: "sqlite",
-  storage: ":memory:",
-  logging: false,
-});
-const TempRole = TempRoleModel(sequelize);
+let db;
 
-beforeAll(async () => {
-  global.appRoot = new URL("../..", import.meta.url).pathname;
-  await TempRole.sync({ force: true });
-});
-
-beforeEach(async () => {
-  await TempRole.destroy({ where: {}, truncate: true });
+beforeEach(() => {
+  db = createDB(":memory:");
   vi.clearAllMocks();
+});
+
+afterEach(() => {
+  db.close();
 });
 
 const makeReply = () => ({
@@ -94,7 +87,7 @@ describe("did-a-thing command", () => {
   it("replies ephemeral when thing not in config", async () => {
     const interaction = makeInteraction("unknown-thing");
 
-    await init(interaction, mockClient, sequelize);
+    await init(interaction, mockClient, db);
 
     expect(interaction.reply).toHaveBeenCalledWith(
       expect.objectContaining({ ephemeral: true }),
@@ -106,7 +99,7 @@ describe("did-a-thing command", () => {
     const interaction = makeInteraction();
     interaction.member.guild.roles.cache.find.mockReturnValue(undefined);
 
-    await init(interaction, mockClient, sequelize);
+    await init(interaction, mockClient, db);
 
     expect(interaction.reply).toHaveBeenCalledWith(
       expect.objectContaining({ ephemeral: true }),
@@ -117,14 +110,14 @@ describe("did-a-thing command", () => {
   it("adds role, creates TempRole with maxReactionCount 1, and reacts 🙌", async () => {
     const interaction = makeInteraction();
 
-    await init(interaction, mockClient, sequelize);
+    await init(interaction, mockClient, db);
 
     expect(interaction.member.roles.add).toHaveBeenCalled();
     expect(interaction.deferReply).toHaveBeenCalled();
     expect(interaction.editReply).toHaveBeenCalled();
     expect(interaction._reply.react).toHaveBeenCalledWith("🙌");
 
-    const row = await TempRole.findOne({ where: {} });
+    const row = db.findByKey("guild-1", "member-1", "role-1", "reply-msg-id");
     expect(row).not.toBeNull();
     expect(row.memberId).toBe("member-1");
     expect(row.roleId).toBe("role-1");
@@ -136,13 +129,12 @@ describe("did-a-thing command", () => {
   it("removes role and sends followUp when DB write fails", async () => {
     const interaction = makeInteraction();
 
-    // Pre-create a row with the same unique key to force a constraint error
-    // We do this after editReply resolves with reply-msg-id
+    // Pre-create a row with the same unique key to force a constraint error.
+    // We intercept editReply so we can insert the conflicting row before db.create runs.
     const original = interaction.editReply;
     interaction.editReply = vi.fn().mockImplementation(async (...args) => {
       const result = await original(...args);
-      // Insert conflicting row before TempRole.create runs
-      await TempRole.create({
+      db.create({
         guildId: "guild-1",
         memberId: "member-1",
         roleId: "role-1",
@@ -155,7 +147,7 @@ describe("did-a-thing command", () => {
       return result;
     });
 
-    await init(interaction, mockClient, sequelize);
+    await init(interaction, mockClient, db);
 
     expect(interaction.member.roles.remove).toHaveBeenCalled();
     expect(interaction.followUp).toHaveBeenCalledWith(
