@@ -43,7 +43,7 @@ const sequelize = new Sequelize(
 import TempRoleModel from "./models/tempRole.js";
 const TempRole = TempRoleModel(sequelize);
 
-client.once("ready", async () => {
+client.once("clientReady", async () => {
   await TempRole.sync({ alter: true });
 
   const now = new Date();
