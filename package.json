@@ -21,7 +21,7 @@
     "colors": "^1.4.0",
     "date-fns": "^4.4.0",
     "date-fns-tz": "^3.2.0",
-    "discord-api-types": "^0.37.100",
+    "discord-api-types": "^0.38.49",
     "discord.js": "^14.16.2",
     "dotenv": "^17.4.2",
     "sequelize": "^6.23.0",
