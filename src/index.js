@@ -7,7 +7,7 @@ import fs from "fs";
 import path from "path";
 import { Sequelize } from "sequelize";
 import { formatInTimeZone } from "date-fns-tz";
-import config from "../config/config.json" assert { type: "json" };
+import config from "../config/config.json" with { type: "json" };
 import canPostInChannel from "./utils/canPostInChannel.js";
 import sendDebugMessage from "./utils/sendDebugMessage.js";
 import "colors";
@@ -42,7 +42,7 @@ const sequelize = new Sequelize(
     dialect: process.env.DB_DIALECT,
     storage: process.env.DB_STORAGE,
     logging: false,
-  }
+  },
 );
 
 // Import the TempRole model
@@ -57,17 +57,17 @@ client.once("ready", async () => {
   const formattedDate = formatInTimeZone(
     now,
     "America/Chicago",
-    "MMMM do yyyy, h:mm:ss a zzz"
+    "MMMM do yyyy, h:mm:ss a zzz",
   );
   sendDebugMessage(
     client,
     `${config.bot.namePrefix}Squiggle came online at ${formattedDate}`,
-    { emoji: "😃", color: "red", bold: true }
+    { emoji: "😃", color: "red", bold: true },
   );
 
   // Load and register commands
   const commandsFiles = fs.readdirSync(
-    path.join(global.appRoot, "./src/commands")
+    path.join(global.appRoot, "./src/commands"),
   );
   const commandPromises = commandsFiles.map(async (file) => {
     const commandModule = await import(`./commands/${file}`);
@@ -114,7 +114,7 @@ client.once("ready", async () => {
       emoji: "⌨️",
     });
     const commandMessages = commands.map(
-      (command) => `\`/${command.name}\`: ${command.description}`
+      (command) => `\`/${command.name}\`: ${command.description}`,
     );
     sendDebugMessage(client, commandMessages, { suboption: true });
   } catch (error) {
@@ -122,7 +122,7 @@ client.once("ready", async () => {
     await sendDebugMessage(
       client,
       `Error registering commands: ${JSON.stringify(error, null, 2)}`,
-      { emoji: "⚠️", color: "red", bold: true }
+      { emoji: "⚠️", color: "red", bold: true },
     );
   }
 });
@@ -146,8 +146,8 @@ client.on("interactionCreate", async (interaction) => {
         `Error executing command ${commandName}: ${JSON.stringify(
           error,
           null,
-          2
-        )}`
+          2,
+        )}`,
       );
       await interaction.reply({
         content: "Something went wrong while executing the command.",
@@ -173,7 +173,7 @@ client.on("messageReactionAdd", async (reaction, user) => {
     } catch (error) {
       await sendDebugMessage(
         client,
-        `Error fetching message: ${error.message}`
+        `Error fetching message: ${error.message}`,
       );
       return;
     }
@@ -190,23 +190,23 @@ client.on("messageReactionAdd", async (reaction, user) => {
       try {
         const { guild } = message;
         const role = guild.roles.cache.find(
-          (findableRole) => findableRole.name === reactionRole.roleName
+          (findableRole) => findableRole.name === reactionRole.roleName,
         );
         if (!role) {
           await sendDebugMessage(
             client,
-            `Role ${reactionRole.roleName} not found`
+            `Role ${reactionRole.roleName} not found`,
           );
           return;
         }
 
         const member = guild.members.cache.find(
-          (findableMember) => findableMember.id === message.author.id
+          (findableMember) => findableMember.id === message.author.id,
         );
         if (!member) {
           await sendDebugMessage(
             client,
-            `Member ${message.author.id} not found`
+            `Member ${message.author.id} not found`,
           );
           return;
         }
@@ -235,13 +235,13 @@ client.on("messageReactionAdd", async (reaction, user) => {
           if (reaction.count >= threshold) {
             // Update the expiration time by adding 4 hours
             expirationTime = new Date(
-              existingTempRole.expirationTime.getTime() + 4 * 60 * 60 * 1000
+              existingTempRole.expirationTime.getTime() + 4 * 60 * 60 * 1000,
             );
             await existingTempRole.update({ expirationTime });
 
             // Send a message to the channel
             await message.reply(
-              `${extenderName} extended your role by four hours`
+              `${extenderName} extended your role by four hours`,
             );
           }
         } else {
@@ -249,7 +249,7 @@ client.on("messageReactionAdd", async (reaction, user) => {
           if (reaction.count >= threshold) {
             // Set the expiration time to 16 hours from now
             expirationTime = new Date(
-              new Date().getTime() + 16 * 60 * 60 * 1000
+              new Date().getTime() + 16 * 60 * 60 * 1000,
             );
 
             // Create a new instance of the role in the database
@@ -270,8 +270,8 @@ client.on("messageReactionAdd", async (reaction, user) => {
               .setTitle(
                 `${memberName} was determined to be ${reactionRole.roleName.replace(
                   /People who are /g,
-                  ""
-                )}`
+                  "",
+                )}`,
               )
               .setColor(reactionRole.color)
               .setAuthor({
@@ -286,10 +286,10 @@ client.on("messageReactionAdd", async (reaction, user) => {
       } catch (error) {
         await sendDebugMessage(
           client,
-          `Error handling reaction: ${JSON.stringify(error, null, 2)}`
+          `Error handling reaction: ${JSON.stringify(error, null, 2)}`,
         );
         await message.channel.send(
-          "Something went wrong with storing a tempRole."
+          "Something went wrong with storing a tempRole.",
         );
       }
     }
