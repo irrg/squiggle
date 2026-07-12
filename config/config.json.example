@@ -35,7 +35,8 @@
         "emojiName": "🤷",
         "threshold": 4, // how many reactions are needed to trigger
         "roleName": "(name of role in Discord)",
-        "color": "#RGBCOL"
+        "color": "#RGBCOL",
+        "forwardChannel": "(optional) channel name to forward the message to on grant"
       }
     ],
     "combinedReactionRoles": [
@@ -43,7 +44,8 @@
         "emojiNames": ["TheBest", "TheWorst"], // all must hit threshold
         "threshold": 4,
         "roleName": "(name of role in Discord)",
-        "color": "#RGBCOL"
+        "color": "#RGBCOL",
+        "forwardChannel": "(optional) channel name to forward the message to on grant"
       }
     ]
   }

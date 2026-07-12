@@ -290,6 +290,20 @@ client.on("messageReactionAdd", async (reaction, user) => {
               .setTimestamp();
 
             await message.reply({ embeds: [embed] });
+
+            if (reactionRole.forwardChannel) {
+              const fwdChannel = message.guild.channels.cache.find(
+                (ch) => ch.name === reactionRole.forwardChannel,
+              );
+              if (fwdChannel) {
+                await message.forward(fwdChannel);
+              } else {
+                await sendDebugMessage(
+                  client,
+                  `forwardChannel "${reactionRole.forwardChannel}" not found`,
+                );
+              }
+            }
           }
         }
       } catch (error) {
@@ -398,6 +412,20 @@ client.on("messageReactionAdd", async (reaction, user) => {
             .setTimestamp();
 
           await message.reply({ embeds: [embed] });
+
+          if (combinedRole.forwardChannel) {
+            const fwdChannel = message.guild.channels.cache.find(
+              (ch) => ch.name === combinedRole.forwardChannel,
+            );
+            if (fwdChannel) {
+              await message.forward(fwdChannel);
+            } else {
+              await sendDebugMessage(
+                client,
+                `forwardChannel "${combinedRole.forwardChannel}" not found`,
+              );
+            }
+          }
         }
       } catch (error) {
         await sendDebugMessage(
