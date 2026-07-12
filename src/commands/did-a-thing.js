@@ -1,5 +1,5 @@
 import { ApplicationCommandOptionType, EmbedBuilder } from "discord.js";
-import config from "../../config/config.json" assert { type: "json" };
+import config from "../../config/config.json" with { type: "json" };
 
 const { String } = ApplicationCommandOptionType;
 
@@ -29,11 +29,26 @@ const init = async (interaction, client, sequelize) => {
   const thing = interaction.options.getString("thing");
   const caption = interaction.options.getString("caption");
   const thingObject = things.find(({ name }) => name === thing);
+
+  if (!thingObject) {
+    await interaction.reply({ content: "Unknown thing.", ephemeral: true });
+    return;
+  }
+
   const role = member.guild.roles.cache.find(
-    ({ name }) => name === thingObject.role
+    ({ name }) => name === thingObject.role,
   );
+
+  if (!role) {
+    await interaction.reply({
+      content: `Role "${thingObject.role}" not found.`,
+      ephemeral: true,
+    });
+    return;
+  }
+
   const expirationDateTime = new Date(
-    new Date().getTime() + 24 * 60 * 60 * 1000
+    new Date().getTime() + 24 * 60 * 60 * 1000,
   );
 
   const TempRole = (
@@ -41,21 +56,11 @@ const init = async (interaction, client, sequelize) => {
   ).default(sequelize);
 
   await interaction.deferReply();
-  await TempRole.sync();
 
   const memberName = member.nickname || member.user.username;
 
   try {
-    await TempRole.create({
-      guildId: member.guild.id,
-      memberId: member.id,
-      memberName,
-      roleId: role.id,
-      roleName: role.name,
-      expirationTime: expirationDateTime,
-    });
-
-    member.roles.add(role);
+    await member.roles.add(role);
 
     const embed = new EmbedBuilder()
       .setTitle(`${memberName} ${thingObject.role.replace(/People who /g, "")}`)
@@ -68,12 +73,35 @@ const init = async (interaction, client, sequelize) => {
       .setTimestamp();
 
     const reply = await interaction.editReply({ embeds: [embed] });
-    reply.react("🙌");
+    await reply.react("🙌");
+
+    try {
+      await TempRole.create({
+        guildId: member.guild.id,
+        memberId: member.id,
+        memberName,
+        roleId: role.id,
+        roleName: role.name,
+        messageId: reply.id,
+        expirationTime: expirationDateTime,
+        source: "command",
+      });
+    } catch (dbError) {
+      await member.roles.remove(role).catch(() => {});
+      await interaction.followUp({
+        content:
+          "Something went wrong saving your progress. Role has been removed.",
+        ephemeral: true,
+      });
+      console.error(dbError);
+    }
 
     return reply;
   } catch (error) {
     console.log(error);
-    return interaction.reply("Something went wrong with storing a tempRole.");
+    return interaction.editReply(
+      "Something went wrong with storing a tempRole.",
+    );
   }
 };
 

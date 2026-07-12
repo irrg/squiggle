@@ -7,12 +7,11 @@ import fs from "fs";
 import path from "path";
 import { Sequelize } from "sequelize";
 import { formatInTimeZone } from "date-fns-tz";
-import config from "../config/config.json" assert { type: "json" };
+import config from "../config/config.json" with { type: "json" };
 import canPostInChannel from "./utils/canPostInChannel.js";
 import sendDebugMessage from "./utils/sendDebugMessage.js";
 import "colors";
 
-// Initialize the Discord client with necessary intents
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -23,16 +22,12 @@ const client = new Client({
   partials: [Partials.Message, Partials.Channel, Partials.Reaction],
 });
 
-// Initialize the REST client for Discord API
 const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
 
-const workerTmp = [];
-const commandTmp = [];
 let commands = [];
 
 global.appRoot = path.resolve();
 
-// Initialize Sequelize for database interaction
 const sequelize = new Sequelize(
   process.env.DB_NAME,
   process.env.DB_USER,
@@ -42,32 +37,29 @@ const sequelize = new Sequelize(
     dialect: process.env.DB_DIALECT,
     storage: process.env.DB_STORAGE,
     logging: false,
-  }
+  },
 );
 
-// Import the TempRole model
 import TempRoleModel from "./models/tempRole.js";
 const TempRole = TempRoleModel(sequelize);
 
-// Event handler for when the bot is ready
 client.once("ready", async () => {
-  await TempRole.sync(/* { force: true } */);
+  await TempRole.sync({ alter: true });
 
   const now = new Date();
   const formattedDate = formatInTimeZone(
     now,
     "America/Chicago",
-    "MMMM do yyyy, h:mm:ss a zzz"
+    "MMMM do yyyy, h:mm:ss a zzz",
   );
   sendDebugMessage(
     client,
     `${config.bot.namePrefix}Squiggle came online at ${formattedDate}`,
-    { emoji: "😃", color: "red", bold: true }
+    { emoji: "😃", color: "red", bold: true },
   );
 
-  // Load and register commands
   const commandsFiles = fs.readdirSync(
-    path.join(global.appRoot, "./src/commands")
+    path.join(global.appRoot, "./src/commands"),
   );
   const commandPromises = commandsFiles.map(async (file) => {
     const commandModule = await import(`./commands/${file}`);
@@ -80,19 +72,27 @@ client.once("ready", async () => {
     };
   });
 
-  // Wait for all command imports to complete
   commands = await Promise.all(commandPromises);
 
-  // Load and register workers
-  const workersFiles = fs.readdirSync(path.join(appRoot, "./src/workers"));
+  const workersFiles = fs.readdirSync(
+    path.join(global.appRoot, "./src/workers"),
+  );
   const workerPromises = workersFiles.map(async (file) => {
     const workerModule = await import(`./workers/${file}`);
+    if (
+      typeof workerModule.interval !== "number" ||
+      workerModule.interval <= 0
+    ) {
+      console.error(
+        `Worker ${file} has invalid interval: ${workerModule.interval}`,
+      );
+      return;
+    }
     setInterval(() => {
       workerModule.run(client, sequelize);
     }, workerModule.interval);
   });
 
-  // Wait for all worker imports to complete
   await Promise.all(workerPromises);
 
   if (workersFiles.length > 0) {
@@ -100,11 +100,9 @@ client.once("ready", async () => {
       color: "gray",
       emoji: "💪",
     });
-    const workerMessages = workersFiles.map((file) => `${file}`);
-    sendDebugMessage(client, workerMessages, { suboption: true });
+    sendDebugMessage(client, workersFiles, { suboption: true });
   }
 
-  // Register commands with Discord API
   try {
     await rest.put(Routes.applicationCommands(client.application.id), {
       body: commands,
@@ -114,7 +112,7 @@ client.once("ready", async () => {
       emoji: "⌨️",
     });
     const commandMessages = commands.map(
-      (command) => `\`/${command.name}\`: ${command.description}`
+      (command) => `\`/${command.name}\`: ${command.description}`,
     );
     sendDebugMessage(client, commandMessages, { suboption: true });
   } catch (error) {
@@ -122,12 +120,11 @@ client.once("ready", async () => {
     await sendDebugMessage(
       client,
       `Error registering commands: ${JSON.stringify(error, null, 2)}`,
-      { emoji: "⚠️", color: "red", bold: true }
+      { emoji: "⚠️", color: "red", bold: true },
     );
   }
 });
 
-// Event handler for command interactions
 client.on("interactionCreate", async (interaction) => {
   if (!interaction.isCommand()) {
     return;
@@ -135,45 +132,54 @@ client.on("interactionCreate", async (interaction) => {
 
   const { commandName, channel } = interaction;
 
-  if (canPostInChannel(channel.name)) {
-    const selectedCommand = commands.find((c) => commandName === c.name);
-    try {
-      await selectedCommand.init(interaction, client, sequelize);
-    } catch (error) {
-      console.error(error);
-      await sendDebugMessage(
-        client,
-        `Error executing command ${commandName}: ${JSON.stringify(
-          error,
-          null,
-          2
-        )}`
-      );
+  // Guard against DMs where channel is null or has no name
+  if (!channel || !canPostInChannel(channel.name)) {
+    await interaction.reply({
+      content: "This bot is not allowed to post in this channel.",
+      ephemeral: true,
+    });
+    return;
+  }
+
+  const selectedCommand = commands.find((c) => commandName === c.name);
+  if (!selectedCommand) {
+    await interaction.reply({ content: "Unknown command.", ephemeral: true });
+    return;
+  }
+
+  try {
+    await selectedCommand.init(interaction, client, sequelize);
+  } catch (error) {
+    console.error(error);
+    await sendDebugMessage(
+      client,
+      `Error executing command ${commandName}: ${JSON.stringify(
+        error,
+        null,
+        2,
+      )}`,
+    );
+    if (!interaction.replied && !interaction.deferred) {
       await interaction.reply({
         content: "Something went wrong while executing the command.",
         ephemeral: true,
       });
     }
-  } else {
-    await interaction.reply({
-      content: "This bot is not allowed to post in this channel.",
-      ephemeral: true,
-    });
   }
 });
 
-// Event handler for message reactions
 client.on("messageReactionAdd", async (reaction, user) => {
+  if (user.id === client.user?.id) return;
+
   let { message } = reaction;
 
-  // Fetch the message if it's not cached
   if (message.partial) {
     try {
       await message.fetch();
     } catch (error) {
       await sendDebugMessage(
         client,
-        `Error fetching message: ${error.message}`
+        `Error fetching message: ${error.message}`,
       );
       return;
     }
@@ -185,93 +191,131 @@ client.on("messageReactionAdd", async (reaction, user) => {
     return;
   }
 
-  config.workers.reactionRoles.forEach(async (reactionRole) => {
-    if (reaction.emoji.name === reactionRole.emojiName) {
+  await Promise.all(
+    config.workers.reactionRoles.map(async (reactionRole) => {
+      if (reaction.emoji.name !== reactionRole.emojiName) {
+        return;
+      }
+
       try {
         const { guild } = message;
         const role = guild.roles.cache.find(
-          (findableRole) => findableRole.name === reactionRole.roleName
+          (findableRole) => findableRole.name === reactionRole.roleName,
         );
         if (!role) {
           await sendDebugMessage(
             client,
-            `Role ${reactionRole.roleName} not found`
+            `Role ${reactionRole.roleName} not found`,
           );
           return;
         }
 
-        const member = guild.members.cache.find(
-          (findableMember) => findableMember.id === message.author.id
-        );
-        if (!member) {
-          await sendDebugMessage(
-            client,
-            `Member ${message.author.id} not found`
-          );
+        // Bot reactions are filtered at handler entry; subtract bot's own
+        // reaction from count if present so threshold reflects human votes only
+        const humanCount = reaction.count - (reaction.me ? 1 : 0);
+        const { threshold } = reactionRole;
+
+        // If this message is a /did-a-thing post, extend that role instead
+        // of running normal reaction-role logic
+        const commandTempRole = await TempRole.findOne({
+          where: { messageId: message.id, source: "command" },
+        });
+
+        if (commandTempRole) {
+          if (
+            humanCount >= threshold &&
+            humanCount > commandTempRole.maxReactionCount
+          ) {
+            if (!commandTempRole.expirationTime) {
+              throw new Error(
+                `TempRole ${commandTempRole.id} has null expirationTime`,
+              );
+            }
+            const expirationTime = new Date(
+              commandTempRole.expirationTime.getTime() + 4 * 60 * 60 * 1000,
+            );
+            await commandTempRole.update({
+              expirationTime,
+              maxReactionCount: humanCount,
+            });
+            const extenderMember = await guild.members.fetch(user.id);
+            const extenderName = extenderMember.nickname || user.username;
+            const postMember = await guild.members.fetch(message.author.id);
+            const postMemberName =
+              postMember.nickname || postMember.user.username;
+            await message.reply(
+              `${extenderName} encouraged ${postMemberName}! Their role was extended by four hours.`,
+            );
+          }
           return;
         }
 
+        // Fetch from API instead of cache to guarantee the member is found
+        const member = await guild.members.fetch(message.author.id);
         const memberName = member.nickname || member.user.username;
 
-        // Fetch the member object for the user who added the reaction
         const extenderMember = await guild.members.fetch(user.id);
         const extenderName = extenderMember.nickname || user.username;
 
-        // Fetch the existing TempRole entry for the specific message
         const existingTempRole = await TempRole.findOne({
           where: {
             guildId: guild.id,
             memberId: member.id,
             roleId: role.id,
-            messageId: message.id, // Filter by message ID
+            messageId: message.id,
           },
         });
 
-        const threshold = reactionRole.threshold; // Use the threshold from the configuration
-
-        let expirationTime;
         if (existingTempRole) {
-          // Check if the reaction count has reached the threshold
-          if (reaction.count >= threshold) {
-            // Update the expiration time by adding 4 hours
-            expirationTime = new Date(
-              existingTempRole.expirationTime.getTime() + 4 * 60 * 60 * 1000
+          // Only extend if this is a genuinely new reactor — count must exceed
+          // the previous high-water mark to prevent remove+re-add gaming
+          if (humanCount > existingTempRole.maxReactionCount) {
+            if (!existingTempRole.expirationTime) {
+              throw new Error(
+                `TempRole ${existingTempRole.id} has null expirationTime`,
+              );
+            }
+            const expirationTime = new Date(
+              existingTempRole.expirationTime.getTime() + 4 * 60 * 60 * 1000,
             );
-            await existingTempRole.update({ expirationTime });
-
-            // Send a message to the channel
+            await existingTempRole.update({
+              expirationTime,
+              maxReactionCount: humanCount,
+            });
             await message.reply(
-              `${extenderName} extended your role by four hours`
+              `${extenderName} extended your role by four hours`,
             );
           }
         } else {
-          // Check if the reaction count has reached the threshold
-          if (reaction.count >= threshold) {
-            // Set the expiration time to 16 hours from now
-            expirationTime = new Date(
-              new Date().getTime() + 16 * 60 * 60 * 1000
+          if (humanCount >= threshold) {
+            const expirationTime = new Date(
+              new Date().getTime() + 16 * 60 * 60 * 1000,
             );
 
-            // Create a new instance of the role in the database
-            await TempRole.create({
-              guildId: guild.id,
-              memberId: member.id,
-              memberName,
-              roleId: role.id,
-              roleName: role.name,
-              messageId: message.id, // Store the message ID
-              expirationTime,
-            });
-
-            // Add the role to the member
-            member.roles.add(role);
+            // Add role first; if DB write fails, roll back the role assignment
+            await member.roles.add(role);
+            try {
+              await TempRole.create({
+                guildId: guild.id,
+                memberId: member.id,
+                memberName,
+                roleId: role.id,
+                roleName: role.name,
+                messageId: message.id,
+                expirationTime,
+                maxReactionCount: humanCount,
+              });
+            } catch (dbError) {
+              await member.roles.remove(role).catch(() => {});
+              throw dbError;
+            }
 
             const embed = new EmbedBuilder()
               .setTitle(
                 `${memberName} was determined to be ${reactionRole.roleName.replace(
                   /People who are /g,
-                  ""
-                )}`
+                  "",
+                )}`,
               )
               .setColor(reactionRole.color)
               .setAuthor({
@@ -286,15 +330,121 @@ client.on("messageReactionAdd", async (reaction, user) => {
       } catch (error) {
         await sendDebugMessage(
           client,
-          `Error handling reaction: ${JSON.stringify(error, null, 2)}`
+          `Error handling reaction: ${JSON.stringify(error, null, 2)}`,
         );
         await message.channel.send(
-          "Something went wrong with storing a tempRole."
+          "Something went wrong with storing a tempRole.",
         );
       }
-    }
-  });
+    }),
+  );
+
+  // Check combined reaction role conditions (e.g. both TheBest + TheWorst)
+  const combinedRoles = config.workers.combinedReactionRoles ?? [];
+  await Promise.all(
+    combinedRoles.map(async (combinedRole) => {
+      try {
+        const { guild } = message;
+
+        const counts = combinedRole.emojiNames.map((emojiName) => {
+          const r = message.reactions.cache.find(
+            (rc) => rc.emoji.name === emojiName,
+          );
+          return r ? r.count - (r.me ? 1 : 0) : 0;
+        });
+
+        if (!counts.every((count) => count >= combinedRole.threshold)) {
+          return;
+        }
+
+        const role = guild.roles.cache.find(
+          (r) => r.name === combinedRole.roleName,
+        );
+        if (!role) {
+          await sendDebugMessage(
+            client,
+            `Combined role ${combinedRole.roleName} not found`,
+          );
+          return;
+        }
+
+        const member = await guild.members.fetch(message.author.id);
+        const memberName = member.nickname || member.user.username;
+
+        const existingTempRole = await TempRole.findOne({
+          where: {
+            guildId: guild.id,
+            memberId: member.id,
+            roleId: role.id,
+            messageId: message.id,
+          },
+        });
+
+        const combinedCount = counts.reduce((sum, c) => sum + c, 0);
+
+        if (existingTempRole) {
+          if (combinedCount > existingTempRole.maxReactionCount) {
+            if (!existingTempRole.expirationTime) {
+              throw new Error(
+                `TempRole ${existingTempRole.id} has null expirationTime`,
+              );
+            }
+            const expirationTime = new Date(
+              existingTempRole.expirationTime.getTime() + 4 * 60 * 60 * 1000,
+            );
+            await existingTempRole.update({
+              expirationTime,
+              maxReactionCount: combinedCount,
+            });
+            await message.reply(
+              `${memberName}'s role was extended by four hours`,
+            );
+          }
+        } else {
+          const expirationTime = new Date(
+            new Date().getTime() + 16 * 60 * 60 * 1000,
+          );
+          await member.roles.add(role);
+          try {
+            await TempRole.create({
+              guildId: guild.id,
+              memberId: member.id,
+              memberName,
+              roleId: role.id,
+              roleName: role.name,
+              messageId: message.id,
+              expirationTime,
+              maxReactionCount: combinedCount,
+            });
+          } catch (dbError) {
+            await member.roles.remove(role).catch(() => {});
+            throw dbError;
+          }
+
+          const embed = new EmbedBuilder()
+            .setTitle(
+              `${memberName} ${combinedRole.roleName.replace(/People who are |people who /gi, "")}`,
+            )
+            .setColor(combinedRole.color)
+            .setAuthor({
+              name: memberName,
+              iconURL: member.displayAvatarURL(),
+            })
+            .setTimestamp();
+
+          await message.reply({ embeds: [embed] });
+        }
+      } catch (error) {
+        await sendDebugMessage(
+          client,
+          `Error handling combined reaction: ${JSON.stringify(error, null, 2)}`,
+        );
+        await message.channel.send(
+          "Something went wrong with a combined role.",
+        );
+      }
+    }),
+  );
 });
 
-// Log in to Discord
 client.login(process.env.DISCORD_TOKEN);

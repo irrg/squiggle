@@ -17,6 +17,14 @@ const TempRoleModel = (sequelize) => {
       type: DataTypes.DATE,
       defaultValue: DataTypes.NOW,
     },
+    maxReactionCount: {
+      type: DataTypes.INTEGER,
+      defaultValue: 0,
+    },
+    source: {
+      type: DataTypes.STRING,
+      defaultValue: "reaction",
+    },
   });
 
   return TempRole;

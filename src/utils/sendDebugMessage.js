@@ -46,7 +46,7 @@ const sendDebugMessage = async (client, messages, options = {}) => {
 
   // Send formatted message to Discord
   const debugChannel = client.channels.cache.find(
-    (ch) => ch.name === "🤖bot-messages"
+    (ch) => ch.name === "🤖bot-messages",
   );
   if (debugChannel) {
     await debugChannel.send(plainMessage);
