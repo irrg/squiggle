@@ -19,7 +19,15 @@ const run = async (client, sequelize) => {
     await Promise.all(
       tempRoles.map(async (tempRole) => {
         const guild = client.guilds.cache.get(tempRole.guildId);
+        if (!guild) {
+          await TempRole.destroy({ where: { id: tempRole.id } });
+          return;
+        }
         const role = guild.roles.cache.get(tempRole.roleId);
+        if (!role) {
+          await TempRole.destroy({ where: { id: tempRole.id } });
+          return;
+        }
         const member = await guild.members.fetch(tempRole.memberId);
         const memberName = member.nickname || member.user.username;
 

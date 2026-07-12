@@ -84,6 +84,7 @@ const init = async (interaction, client, sequelize) => {
         roleName: role.name,
         messageId: reply.id,
         expirationTime: expirationDateTime,
+        maxReactionCount: 1,
       });
     } catch (dbError) {
       await member.roles.remove(role).catch(() => {});
