@@ -210,45 +210,10 @@ client.on("messageReactionAdd", async (reaction, user) => {
           return;
         }
 
-        // Bot reactions are filtered at handler entry; subtract bot's own
-        // reaction from count if present so threshold reflects human votes only
+        // Bot reactions filtered at handler entry; subtract bot's own reaction
+        // so threshold reflects human votes only
         const humanCount = reaction.count - (reaction.me ? 1 : 0);
         const { threshold } = reactionRole;
-
-        // If this message is a /did-a-thing post, extend that role instead
-        // of running normal reaction-role logic
-        const commandTempRole = await TempRole.findOne({
-          where: { messageId: message.id, source: "command" },
-        });
-
-        if (commandTempRole) {
-          if (
-            humanCount >= threshold &&
-            humanCount > commandTempRole.maxReactionCount
-          ) {
-            if (!commandTempRole.expirationTime) {
-              throw new Error(
-                `TempRole ${commandTempRole.id} has null expirationTime`,
-              );
-            }
-            const expirationTime = new Date(
-              commandTempRole.expirationTime.getTime() + 4 * 60 * 60 * 1000,
-            );
-            await commandTempRole.update({
-              expirationTime,
-              maxReactionCount: humanCount,
-            });
-            const extenderMember = await guild.members.fetch(user.id);
-            const extenderName = extenderMember.nickname || user.username;
-            const postMember = await guild.members.fetch(message.author.id);
-            const postMemberName =
-              postMember.nickname || postMember.user.username;
-            await message.reply(
-              `${extenderName} encouraged ${postMemberName}! Their role was extended by four hours.`,
-            );
-          }
-          return;
-        }
 
         // Fetch from API instead of cache to guarantee the member is found
         const member = await guild.members.fetch(message.author.id);
