@@ -72,7 +72,7 @@ const init = async (interaction, client, db) => {
     await reply.react("🙌");
 
     try {
-      db.create({
+      await db.create({
         guildId: member.guild.id,
         memberId: member.id,
         memberName,

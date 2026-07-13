@@ -43,11 +43,11 @@ const testConfig = {
 const mockClient = { user: { id: "bot-id" } };
 
 const mockTempRole = {
-  findByMessageId: vi.fn().mockReturnValue(null),
-  findByKey: vi.fn().mockReturnValue(null),
-  create: vi.fn(),
-  extend: vi.fn(),
-  deleteById: vi.fn(),
+  findByMessageId: vi.fn().mockResolvedValue(null),
+  findByKey: vi.fn().mockResolvedValue(null),
+  create: vi.fn().mockResolvedValue(undefined),
+  extend: vi.fn().mockResolvedValue(undefined),
+  deleteById: vi.fn().mockResolvedValue(undefined),
 };
 
 const deps = () => ({ client: mockClient, TempRole: mockTempRole, config: testConfig });
@@ -103,11 +103,11 @@ const makeUser = (id = "reactor-id") => ({ id, username: "reactor" });
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockTempRole.findByMessageId.mockReset().mockReturnValue(null);
-  mockTempRole.findByKey.mockReset().mockReturnValue(null);
-  mockTempRole.create.mockReset();
-  mockTempRole.extend.mockReset();
-  mockTempRole.deleteById.mockReset();
+  mockTempRole.findByMessageId.mockReset().mockResolvedValue(null);
+  mockTempRole.findByKey.mockReset().mockResolvedValue(null);
+  mockTempRole.create.mockReset().mockResolvedValue(undefined);
+  mockTempRole.extend.mockReset().mockResolvedValue(undefined);
+  mockTempRole.deleteById.mockReset().mockResolvedValue(undefined);
 });
 
 // --- messageReactionAdd tests ---
@@ -165,7 +165,7 @@ describe("messageReactionAdd handler", () => {
       maxReactionCount: 3,
       expirationTime: new Date(Date.now() + 10 * 60 * 60 * 1000),
     };
-    mockTempRole.findByKey.mockReturnValueOnce(existingTempRole);
+    mockTempRole.findByKey.mockResolvedValueOnce(existingTempRole);
 
     // humanCount=4 > maxReactionCount=3 → extend
     const reaction = makeReaction({ count: 5, me: true });
@@ -187,7 +187,7 @@ describe("messageReactionAdd handler", () => {
       maxReactionCount: 4,
       expirationTime: new Date(Date.now() + 10 * 60 * 60 * 1000),
     };
-    mockTempRole.findByKey.mockReturnValueOnce(existingTempRole);
+    mockTempRole.findByKey.mockResolvedValueOnce(existingTempRole);
 
     // humanCount=4 = maxReactionCount=4 → no extend
     const reaction = makeReaction({ count: 5, me: true });
@@ -200,7 +200,7 @@ describe("messageReactionAdd handler", () => {
   it("does not roll back role on SequelizeUniqueConstraintError (race condition)", async () => {
     const uniqueError = new Error("Unique constraint");
     uniqueError.name = "SequelizeUniqueConstraintError";
-    mockTempRole.create.mockImplementationOnce(() => { throw uniqueError; });
+    mockTempRole.create.mockRejectedValueOnce(uniqueError);
 
     const reaction = makeReaction({ count: 4, me: true });
     await handleReactionAdd(reaction, makeUser(), deps());
@@ -210,8 +210,8 @@ describe("messageReactionAdd handler", () => {
   });
 
   it("looks up real memberId from TempRole when message is bot-authored", async () => {
-    mockTempRole.findByMessageId.mockReturnValueOnce({ memberId: "real-user-id" });
-    mockTempRole.findByKey.mockReturnValue(null);
+    mockTempRole.findByMessageId.mockResolvedValueOnce({ memberId: "real-user-id" });
+    mockTempRole.findByKey.mockResolvedValue(null);
 
     const reaction = makeReaction({ emoji: { name: "👍" }, count: 4, me: true });
     reaction.message.author = { id: "bot-id", bot: true };
@@ -222,7 +222,7 @@ describe("messageReactionAdd handler", () => {
   });
 
   it("returns early when bot-authored message has no source TempRole", async () => {
-    mockTempRole.findByMessageId.mockReturnValueOnce(null);
+    mockTempRole.findByMessageId.mockResolvedValueOnce(null);
 
     const reaction = makeReaction();
     reaction.message.author = { id: "bot-id", bot: true };
@@ -259,8 +259,8 @@ describe("combined reaction role handling", () => {
   it("grants combined role when all emoji hit threshold", async () => {
     const reaction = makeCombinedReaction(2, 2); // both ≥ 2
     mockTempRole.findByKey
-      .mockReturnValueOnce(null) // regular reactionRoles path
-      .mockReturnValueOnce(null); // combined path
+      .mockResolvedValueOnce(null) // regular reactionRoles path
+      .mockResolvedValueOnce(null); // combined path
 
     await handleReactionAdd(reaction, makeUser(), deps());
 
@@ -276,8 +276,8 @@ describe("combined reaction role handling", () => {
       expirationTime: new Date(Date.now() + 10 * 60 * 60 * 1000),
     };
     mockTempRole.findByKey
-      .mockReturnValueOnce(null) // regular path
-      .mockReturnValueOnce(existingTempRole); // combined path
+      .mockResolvedValueOnce(null) // regular path
+      .mockResolvedValueOnce(existingTempRole); // combined path
 
     // TheBest=5 (inflated), TheWorst=3 → min=3 = stored HWM → no extend
     const reaction = makeCombinedReaction(5, 3);
@@ -306,7 +306,7 @@ describe("messageReactionRemove handler", () => {
 
   it("revokes combined role when emoji count drops below threshold", async () => {
     const existingTempRole = { id: 99 };
-    mockTempRole.findByKey.mockReturnValueOnce(existingTempRole);
+    mockTempRole.findByKey.mockResolvedValueOnce(existingTempRole);
 
     // TheBest drops to 1, below threshold=2 → revoke
     const reaction = makeCombinedRemoveReaction(1, 2);
@@ -326,7 +326,7 @@ describe("messageReactionRemove handler", () => {
   });
 
   it("does nothing when no TempRole exists for the combined role", async () => {
-    mockTempRole.findByKey.mockReturnValueOnce(null);
+    mockTempRole.findByKey.mockResolvedValueOnce(null);
 
     const reaction = makeCombinedRemoveReaction(1, 1); // below threshold
     const member = makeMember();

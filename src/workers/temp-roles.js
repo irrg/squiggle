@@ -2,24 +2,24 @@ import sendDebugMessage from "../utils/sendDebugMessage.js";
 
 const run = async (client, db) => {
   try {
-    const tempRoles = db.findExpired();
+    const tempRoles = await db.findExpired();
 
     await Promise.all(
       tempRoles.map(async (tempRole) => {
         const guild = client.guilds.cache.get(tempRole.guildId);
         if (!guild) {
-          db.deleteById(tempRole.id);
+          await db.deleteById(tempRole.id);
           return;
         }
         const role = guild.roles.cache.get(tempRole.roleId);
         if (!role) {
-          db.deleteById(tempRole.id);
+          await db.deleteById(tempRole.id);
           return;
         }
         const member = await guild.members.fetch(tempRole.memberId);
         const memberName = member.nickname || member.user.username;
 
-        const hasLater = db.hasLaterExpiration(
+        const hasLater = await db.hasLaterExpiration(
           tempRole.guildId,
           tempRole.memberId,
           tempRole.roleId,
@@ -27,7 +27,7 @@ const run = async (client, db) => {
         );
 
         if (hasLater) {
-          const deleted = db.deleteById(tempRole.id);
+          const deleted = await db.deleteById(tempRole.id);
           if (deleted > 0) {
             const msg = `removed tempRole table row ${tempRole.id}`;
             console.log(msg);
@@ -43,7 +43,7 @@ const run = async (client, db) => {
           await sendDebugMessage(client, msg);
           await member.roles.remove(role);
 
-          const deleted = db.deleteByKey(
+          const deleted = await db.deleteByKey(
             tempRole.guildId,
             tempRole.memberId,
             tempRole.roleId,

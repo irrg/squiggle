@@ -27,7 +27,7 @@ const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
 
 let commands = [];
 
-const db = createDB(process.env.DB_STORAGE);
+const db = await createDB(process.env.DB_STORAGE);
 
 client.once("clientReady", async () => {
   const now = new Date();

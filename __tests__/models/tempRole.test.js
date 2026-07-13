@@ -12,18 +12,18 @@ const base = {
 
 let db;
 
-beforeEach(() => {
-  db = createDB(":memory:");
+beforeEach(async () => {
+  db = await createDB();
 });
 
-afterEach(() => {
-  db.close();
+afterEach(async () => {
+  await db.close();
 });
 
 describe("TempRole model", () => {
-  it("creates a record with all fields", () => {
+  it("creates a record with all fields", async () => {
     const expirationTime = new Date(Date.now() + 60 * 60 * 1000);
-    const record = db.create({ ...base, expirationTime });
+    const record = await db.create({ ...base, expirationTime });
 
     expect(record.id).toBeDefined();
     expect(record.guildId).toBe("guild-1");
@@ -32,63 +32,63 @@ describe("TempRole model", () => {
     expect(record.expirationTime).toBeInstanceOf(Date);
   });
 
-  it("findByMessageId returns the row", () => {
+  it("findByMessageId returns the row", async () => {
     const expirationTime = new Date(Date.now() + 60 * 60 * 1000);
-    db.create({ ...base, expirationTime });
+    await db.create({ ...base, expirationTime });
 
-    const found = db.findByMessageId("msg-1");
+    const found = await db.findByMessageId("msg-1");
     expect(found).not.toBeNull();
     expect(found.roleName).toBe("Cool Person");
     expect(found.expirationTime).toBeInstanceOf(Date);
   });
 
-  it("findByMessageId returns null when not found", () => {
-    expect(db.findByMessageId("nonexistent")).toBeNull();
+  it("findByMessageId returns null when not found", async () => {
+    expect(await db.findByMessageId("nonexistent")).toBeNull();
   });
 
-  it("findByKey returns the row", () => {
+  it("findByKey returns the row", async () => {
     const expirationTime = new Date(Date.now() + 60 * 60 * 1000);
-    db.create({ ...base, expirationTime });
+    await db.create({ ...base, expirationTime });
 
-    const found = db.findByKey("guild-1", "member-1", "role-1", "msg-1");
+    const found = await db.findByKey("guild-1", "member-1", "role-1", "msg-1");
     expect(found).not.toBeNull();
     expect(found.memberName).toBe("testuser");
   });
 
-  it("findByKey returns null when not found", () => {
-    expect(db.findByKey("guild-1", "member-1", "role-1", "no-msg")).toBeNull();
+  it("findByKey returns null when not found", async () => {
+    expect(await db.findByKey("guild-1", "member-1", "role-1", "no-msg")).toBeNull();
   });
 
-  it("extend updates expiration time and maxReactionCount", () => {
+  it("extend updates expiration time and maxReactionCount", async () => {
     const initial = new Date(Date.now() + 60 * 60 * 1000);
-    const record = db.create({ ...base, expirationTime: initial });
+    const record = await db.create({ ...base, expirationTime: initial });
 
     const extended = new Date(initial.getTime() + 4 * 60 * 60 * 1000);
-    db.extend(record.id, extended, 5);
+    await db.extend(record.id, extended, 5);
 
-    const updated = db.findByKey("guild-1", "member-1", "role-1", "msg-1");
+    const updated = await db.findByKey("guild-1", "member-1", "role-1", "msg-1");
     expect(updated.expirationTime.getTime()).toBe(extended.getTime());
     expect(updated.maxReactionCount).toBe(5);
   });
 
-  it("deleteById removes the row and returns changes count", () => {
-    const record = db.create({ ...base, expirationTime: new Date() });
-    const deleted = db.deleteById(record.id);
+  it("deleteById removes the row and returns changes count", async () => {
+    const record = await db.create({ ...base, expirationTime: new Date() });
+    const deleted = await db.deleteById(record.id);
 
     expect(deleted).toBe(1);
-    expect(db.findByKey("guild-1", "member-1", "role-1", "msg-1")).toBeNull();
+    expect(await db.findByKey("guild-1", "member-1", "role-1", "msg-1")).toBeNull();
   });
 
-  it("deleteByKey removes the row and returns changes count", () => {
-    db.create({ ...base, expirationTime: new Date() });
-    const deleted = db.deleteByKey("guild-1", "member-1", "role-1", "msg-1");
+  it("deleteByKey removes the row and returns changes count", async () => {
+    await db.create({ ...base, expirationTime: new Date() });
+    const deleted = await db.deleteByKey("guild-1", "member-1", "role-1", "msg-1");
 
     expect(deleted).toBe(1);
-    expect(db.findByKey("guild-1", "member-1", "role-1", "msg-1")).toBeNull();
+    expect(await db.findByKey("guild-1", "member-1", "role-1", "msg-1")).toBeNull();
   });
 
-  it("stores maxReactionCount on create", () => {
-    const record = db.create({
+  it("stores maxReactionCount on create", async () => {
+    const record = await db.create({
       ...base,
       expirationTime: new Date(Date.now() + 60 * 60 * 1000),
       maxReactionCount: 4,
@@ -96,52 +96,52 @@ describe("TempRole model", () => {
     expect(record.maxReactionCount).toBe(4);
   });
 
-  it("findExpired returns only expired rows", () => {
+  it("findExpired returns only expired rows", async () => {
     const expired = new Date(Date.now() - 60 * 60 * 1000);
     const future = new Date(Date.now() + 60 * 60 * 1000);
 
-    db.create({ ...base, expirationTime: expired });
-    db.create({ ...base, messageId: "msg-2", expirationTime: future });
+    await db.create({ ...base, expirationTime: expired });
+    await db.create({ ...base, messageId: "msg-2", expirationTime: future });
 
-    const results = db.findExpired();
+    const results = await db.findExpired();
     expect(results).toHaveLength(1);
     expect(results[0].messageId).toBe("msg-1");
     expect(results[0].expirationTime).toBeInstanceOf(Date);
   });
 
-  it("hasLaterExpiration returns true when a later row exists", () => {
+  it("hasLaterExpiration returns true when a later row exists", async () => {
     const earlier = new Date(Date.now() - 60 * 60 * 1000);
     const later = new Date(Date.now() + 60 * 60 * 1000);
 
-    db.create({ ...base, messageId: "msg-1", expirationTime: earlier });
-    db.create({ ...base, messageId: "msg-2", expirationTime: later });
+    await db.create({ ...base, messageId: "msg-1", expirationTime: earlier });
+    await db.create({ ...base, messageId: "msg-2", expirationTime: later });
 
     expect(
-      db.hasLaterExpiration("guild-1", "member-1", "role-1", earlier.getTime()),
+      await db.hasLaterExpiration("guild-1", "member-1", "role-1", earlier.getTime()),
     ).toBe(true);
   });
 
-  it("hasLaterExpiration returns false when no later row exists", () => {
+  it("hasLaterExpiration returns false when no later row exists", async () => {
     const t = new Date(Date.now() + 60 * 60 * 1000);
-    db.create({ ...base, expirationTime: t });
+    await db.create({ ...base, expirationTime: t });
 
     expect(
-      db.hasLaterExpiration("guild-1", "member-1", "role-1", t.getTime()),
+      await db.hasLaterExpiration("guild-1", "member-1", "role-1", t.getTime()),
     ).toBe(false);
   });
 
-  it("throws SequelizeUniqueConstraintError on duplicate key", () => {
+  it("throws SequelizeUniqueConstraintError on duplicate key", async () => {
     const expirationTime = new Date(Date.now() + 60 * 60 * 1000);
-    db.create({ ...base, expirationTime });
+    await db.create({ ...base, expirationTime });
 
-    expect(() => db.create({ ...base, expirationTime })).toThrow(
-      expect.objectContaining({ name: "SequelizeUniqueConstraintError" }),
-    );
+    await expect(db.create({ ...base, expirationTime })).rejects.toMatchObject({
+      name: "SequelizeUniqueConstraintError",
+    });
   });
 
-  it("does not extend when reaction count equals maxReactionCount (remove+re-add)", () => {
+  it("does not extend when reaction count equals maxReactionCount (remove+re-add)", async () => {
     const initial = new Date(Date.now() + 16 * 60 * 60 * 1000);
-    const record = db.create({
+    const record = await db.create({
       ...base,
       expirationTime: initial,
       maxReactionCount: 4,
@@ -151,13 +151,13 @@ describe("TempRole model", () => {
     const shouldExtend = reactionCount > record.maxReactionCount;
     expect(shouldExtend).toBe(false);
 
-    const unchanged = db.findByKey("guild-1", "member-1", "role-1", "msg-1");
+    const unchanged = await db.findByKey("guild-1", "member-1", "role-1", "msg-1");
     expect(unchanged.expirationTime.getTime()).toBe(initial.getTime());
   });
 
-  it("extends and updates maxReactionCount when a genuinely new reactor pushes count higher", () => {
+  it("extends and updates maxReactionCount when a genuinely new reactor pushes count higher", async () => {
     const initial = new Date(Date.now() + 16 * 60 * 60 * 1000);
-    const record = db.create({
+    const record = await db.create({
       ...base,
       expirationTime: initial,
       maxReactionCount: 4,
@@ -166,10 +166,10 @@ describe("TempRole model", () => {
     const reactionCount = 5;
     if (reactionCount > record.maxReactionCount) {
       const extended = new Date(initial.getTime() + 4 * 60 * 60 * 1000);
-      db.extend(record.id, extended, reactionCount);
+      await db.extend(record.id, extended, reactionCount);
     }
 
-    const updated = db.findByKey("guild-1", "member-1", "role-1", "msg-1");
+    const updated = await db.findByKey("guild-1", "member-1", "role-1", "msg-1");
     expect(updated.maxReactionCount).toBe(5);
     expect(updated.expirationTime.getTime()).toBeGreaterThan(initial.getTime());
   });

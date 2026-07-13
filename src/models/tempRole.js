@@ -1,60 +1,53 @@
-import Database from "better-sqlite3";
+import Datastore from "@seald-io/nedb";
 
-const createDB = (dbPath) => {
-  const db = new Database(dbPath);
+const createDB = async (filePath) => {
+  const opts = filePath ? { filename: filePath, autoload: true } : { inMemory: true };
+  const ds = new Datastore(opts);
 
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS TempRoles (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      guildId TEXT NOT NULL,
-      memberId TEXT NOT NULL,
-      memberName TEXT,
-      roleId TEXT NOT NULL,
-      roleName TEXT,
-      messageId TEXT NOT NULL,
-      expirationTime INTEGER NOT NULL,
-      maxReactionCount INTEGER NOT NULL DEFAULT 0,
-      createdAt INTEGER NOT NULL,
-      updatedAt INTEGER NOT NULL,
-      UNIQUE(guildId, memberId, roleId, messageId)
-    )
-  `);
+  await ds.ensureIndexAsync({ fieldName: "messageId" });
+  await ds.ensureIndexAsync({ fieldName: "expirationTime" });
+  await ds.ensureIndexAsync({
+    fieldName: "_id",
+    unique: true,
+  });
 
-  const toRow = (raw) => {
-    if (!raw) return null;
-    return { ...raw, expirationTime: new Date(raw.expirationTime) };
+  const toRow = (doc) => {
+    if (!doc) return null;
+    const { _id, ...rest } = doc;
+    return { ...rest, id: _id, expirationTime: new Date(doc.expirationTime) };
   };
 
-  const findByMessageId = (messageId) => {
-    const row = db.prepare("SELECT * FROM TempRoles WHERE messageId = ?").get(messageId);
-    return toRow(row);
+  const makeId = (guildId, memberId, roleId, messageId) =>
+    `${guildId}:${memberId}:${roleId}:${messageId}`;
+
+  const findByMessageId = async (messageId) => {
+    const doc = await ds.findOneAsync({ messageId });
+    return toRow(doc);
   };
 
-  const findByKey = (guildId, memberId, roleId, messageId) => {
-    const row = db
-      .prepare(
-        "SELECT * FROM TempRoles WHERE guildId = ? AND memberId = ? AND roleId = ? AND messageId = ?",
-      )
-      .get(guildId, memberId, roleId, messageId);
-    return toRow(row);
+  const findByKey = async (guildId, memberId, roleId, messageId) => {
+    const id = makeId(guildId, memberId, roleId, messageId);
+    const doc = await ds.findOneAsync({ _id: id });
+    return toRow(doc);
   };
 
-  const findExpired = () => {
+  const findExpired = async () => {
     const now = Date.now();
-    const rows = db.prepare("SELECT * FROM TempRoles WHERE expirationTime < ?").all(now);
-    return rows.map(toRow);
+    const docs = await ds.findAsync({ expirationTime: { $lt: now } });
+    return docs.map(toRow);
   };
 
-  const hasLaterExpiration = (guildId, memberId, roleId, afterMs) => {
-    const row = db
-      .prepare(
-        "SELECT id FROM TempRoles WHERE guildId = ? AND memberId = ? AND roleId = ? AND expirationTime > ?",
-      )
-      .get(guildId, memberId, roleId, afterMs);
-    return row !== undefined;
+  const hasLaterExpiration = async (guildId, memberId, roleId, afterMs) => {
+    const doc = await ds.findOneAsync({
+      guildId,
+      memberId,
+      roleId,
+      expirationTime: { $gt: afterMs },
+    });
+    return doc !== null;
   };
 
-  const create = ({
+  const create = async ({
     guildId,
     memberId,
     memberName,
@@ -67,34 +60,24 @@ const createDB = (dbPath) => {
     const now = Date.now();
     const expirationMs =
       expirationTime instanceof Date ? expirationTime.getTime() : expirationTime;
+    const _id = makeId(guildId, memberId, roleId, messageId);
     try {
-      const result = db
-        .prepare(
-          `INSERT INTO TempRoles (guildId, memberId, memberName, roleId, roleName, messageId, expirationTime, maxReactionCount, createdAt, updatedAt)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        )
-        .run(
-          guildId,
-          memberId,
-          memberName,
-          roleId,
-          roleName,
-          messageId,
-          expirationMs,
-          maxReactionCount,
-          now,
-          now,
-        );
-      return (
-        findByKey(guildId, memberId, roleId, messageId) ?? {
-          id: result.lastInsertRowid,
-        }
-      );
+      const doc = await ds.insertAsync({
+        _id,
+        guildId,
+        memberId,
+        memberName,
+        roleId,
+        roleName,
+        messageId,
+        expirationTime: expirationMs,
+        maxReactionCount,
+        createdAt: now,
+        updatedAt: now,
+      });
+      return toRow(doc);
     } catch (err) {
-      if (
-        err.code === "SQLITE_CONSTRAINT_UNIQUE" ||
-        (err.message && err.message.includes("UNIQUE constraint failed"))
-      ) {
+      if (err.errorType === "uniqueViolated") {
         const uniqueErr = new Error("Unique constraint violated");
         uniqueErr.name = "SequelizeUniqueConstraintError";
         throw uniqueErr;
@@ -103,30 +86,30 @@ const createDB = (dbPath) => {
     }
   };
 
-  const extend = (id, expirationTime, maxReactionCount) => {
+  const extend = async (id, expirationTime, maxReactionCount) => {
     const expirationMs =
       expirationTime instanceof Date ? expirationTime.getTime() : expirationTime;
     const now = Date.now();
-    db.prepare(
-      "UPDATE TempRoles SET expirationTime = ?, maxReactionCount = ?, updatedAt = ? WHERE id = ?",
-    ).run(expirationMs, maxReactionCount, now, id);
+    await ds.updateAsync(
+      { _id: id },
+      { $set: { expirationTime: expirationMs, maxReactionCount, updatedAt: now } },
+    );
   };
 
-  const deleteById = (id) => {
-    const result = db.prepare("DELETE FROM TempRoles WHERE id = ?").run(id);
-    return result.changes;
+  const deleteById = async (id) => {
+    const numRemoved = await ds.removeAsync({ _id: id }, {});
+    return numRemoved;
   };
 
-  const deleteByKey = (guildId, memberId, roleId, messageId) => {
-    const result = db
-      .prepare(
-        "DELETE FROM TempRoles WHERE guildId = ? AND memberId = ? AND roleId = ? AND messageId = ?",
-      )
-      .run(guildId, memberId, roleId, messageId);
-    return result.changes;
+  const deleteByKey = async (guildId, memberId, roleId, messageId) => {
+    const id = makeId(guildId, memberId, roleId, messageId);
+    const numRemoved = await ds.removeAsync({ _id: id }, { multi: false });
+    return numRemoved;
   };
 
-  const close = () => db.close();
+  const close = async () => {
+    // no-op for nedb
+  };
 
   return {
     findByMessageId,

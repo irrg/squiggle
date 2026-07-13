@@ -27,13 +27,13 @@ const { init } = await import("../../src/commands/did-a-thing.js");
 
 let db;
 
-beforeEach(() => {
-  db = createDB(":memory:");
+beforeEach(async () => {
+  db = await createDB();
   vi.clearAllMocks();
 });
 
-afterEach(() => {
-  db.close();
+afterEach(async () => {
+  await db.close();
 });
 
 const makeReply = () => ({
@@ -117,7 +117,7 @@ describe("did-a-thing command", () => {
     expect(interaction.editReply).toHaveBeenCalled();
     expect(interaction._reply.react).toHaveBeenCalledWith("🙌");
 
-    const row = db.findByKey("guild-1", "member-1", "role-1", "reply-msg-id");
+    const row = await db.findByKey("guild-1", "member-1", "role-1", "reply-msg-id");
     expect(row).not.toBeNull();
     expect(row.memberId).toBe("member-1");
     expect(row.roleId).toBe("role-1");
@@ -134,7 +134,7 @@ describe("did-a-thing command", () => {
     const original = interaction.editReply;
     interaction.editReply = vi.fn().mockImplementation(async (...args) => {
       const result = await original(...args);
-      db.create({
+      await db.create({
         guildId: "guild-1",
         memberId: "member-1",
         roleId: "role-1",

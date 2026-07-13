@@ -1,6 +1,6 @@
 {
   "name": "squiggle",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "main": "src/index.js",
   "bin": "src/index.js",
   "private": true,
@@ -25,7 +25,7 @@
     "discord-api-types": "^0.38.49",
     "discord.js": "^14.16.2",
     "dotenv": "^17.4.2",
-    "better-sqlite3": "^11.10.0",
+    "@seald-io/nedb": "^4.0.2",
     "winston": "^3.19.0"
   },
   "devDependencies": {

@@ -22,7 +22,7 @@ export async function handleReactionAdd(reaction, user, { client, TempRole, conf
 
   let messageAuthorId = message.author.id;
   if (message.author?.bot) {
-    const sourceRole = TempRole.findByMessageId(message.id);
+    const sourceRole = await TempRole.findByMessageId(message.id);
     if (!sourceRole) return;
     messageAuthorId = sourceRole.memberId;
   }
@@ -51,14 +51,14 @@ export async function handleReactionAdd(reaction, user, { client, TempRole, conf
         const extenderMember = await guild.members.fetch(user.id);
         const extenderName = extenderMember.nickname || user.username;
 
-        const existingTempRole = TempRole.findByKey(guild.id, member.id, role.id, message.id);
+        const existingTempRole = await TempRole.findByKey(guild.id, member.id, role.id, message.id);
 
         if (existingTempRole) {
           if (humanCount > existingTempRole.maxReactionCount) {
             const expirationTime = new Date(
               existingTempRole.expirationTime.getTime() + 4 * 60 * 60 * 1000,
             );
-            TempRole.extend(existingTempRole.id, expirationTime, humanCount);
+            await TempRole.extend(existingTempRole.id, expirationTime, humanCount);
             await message.reply(`${extenderName} extended your role by four hours`);
           }
         } else {
@@ -67,7 +67,7 @@ export async function handleReactionAdd(reaction, user, { client, TempRole, conf
 
             await member.roles.add(role);
             try {
-              TempRole.create({
+              await TempRole.create({
                 guildId: guild.id,
                 memberId: member.id,
                 memberName,
@@ -138,7 +138,7 @@ export async function handleReactionAdd(reaction, user, { client, TempRole, conf
         const member = await guild.members.fetch(messageAuthorId);
         const memberName = member.nickname || member.user.username;
 
-        const existingTempRole = TempRole.findByKey(guild.id, member.id, role.id, message.id);
+        const existingTempRole = await TempRole.findByKey(guild.id, member.id, role.id, message.id);
 
         const combinedCount = Math.min(...counts);
 
@@ -147,14 +147,14 @@ export async function handleReactionAdd(reaction, user, { client, TempRole, conf
             const expirationTime = new Date(
               existingTempRole.expirationTime.getTime() + 4 * 60 * 60 * 1000,
             );
-            TempRole.extend(existingTempRole.id, expirationTime, combinedCount);
+            await TempRole.extend(existingTempRole.id, expirationTime, combinedCount);
             await message.reply(`${memberName}'s role was extended by four hours`);
           }
         } else {
           const expirationTime = new Date(new Date().getTime() + 16 * 60 * 60 * 1000);
           await member.roles.add(role);
           try {
-            TempRole.create({
+            await TempRole.create({
               guildId: guild.id,
               memberId: member.id,
               memberName,
@@ -237,19 +237,19 @@ export async function handleReactionRemove(reaction, user, { client, TempRole, c
 
         let messageAuthorId = message.author.id;
         if (message.author?.bot) {
-          const sourceRole = TempRole.findByMessageId(message.id);
+          const sourceRole = await TempRole.findByMessageId(message.id);
           if (!sourceRole) return;
           messageAuthorId = sourceRole.memberId;
         }
 
         const member = await guild.members.fetch(messageAuthorId);
 
-        const existingTempRole = TempRole.findByKey(guild.id, member.id, role.id, message.id);
+        const existingTempRole = await TempRole.findByKey(guild.id, member.id, role.id, message.id);
 
         if (!existingTempRole) return;
 
         await member.roles.remove(role).catch(() => {});
-        TempRole.deleteById(existingTempRole.id);
+        await TempRole.deleteById(existingTempRole.id);
       } catch (error) {
         await sendDebugMessage(
           client,
