@@ -31,6 +31,16 @@ const createDB = async (filePath) => {
     return toRow(doc);
   };
 
+  const findAll = async () => {
+    const docs = await ds.findAsync({}).sort({ expirationTime: 1 });
+    return docs.map(toRow);
+  };
+
+  const findAllByMemberRole = async (guildId, memberId, roleId) => {
+    const docs = await ds.findAsync({ guildId, memberId, roleId });
+    return docs.map(toRow);
+  };
+
   const findExpired = async () => {
     const now = Date.now();
     const docs = await ds.findAsync({ expirationTime: { $lt: now } });
@@ -112,6 +122,8 @@ const createDB = async (filePath) => {
   };
 
   return {
+    findAll,
+    findAllByMemberRole,
     findByMessageId,
     findByKey,
     findExpired,
