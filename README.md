@@ -12,6 +12,7 @@ Tailored to one server's specific vibe — but the mechanics are general enough 
 - **Auto-forwarding** — optionally forwards the triggering message to a configured channel when a role is first granted
 - **Extensions** — each genuinely new reactor adds 4 hours to the role's expiration
 - **Auto-expiry** — all roles expire after 16 hours; a worker cleans them up automatically
+- `/squiggle` — admin commands: list active temp roles, manually expire a role, or trigger the worker on demand (Administrator permission required)
 
 ## Requirements
 
@@ -44,15 +45,10 @@ Create a `.env` file in the project root:
 
 ```env
 DISCORD_TOKEN=your-bot-token-here
-DB_NAME=squiggle
-DB_USER=squiggle
-DB_PASSWORD=
-DB_HOST=localhost
-DB_DIALECT=sqlite
 DB_STORAGE=./squiggle.db
 ```
 
-For SQLite (the default), `DB_NAME`, `DB_USER`, `DB_PASSWORD`, and `DB_HOST` can be anything — only `DB_DIALECT` and `DB_STORAGE` matter.
+`DB_STORAGE` is the path to the database file. Omit it to use an in-memory database (data lost on restart).
 
 ### 4. Run
 
