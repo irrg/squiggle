@@ -11,6 +11,7 @@ import canPostInChannel from "./utils/canPostInChannel.js";
 import sendDebugMessage from "./utils/sendDebugMessage.js";
 import { handleReactionAdd, handleReactionRemove } from "./handlers/reactions.js";
 import createDB from "./models/tempRole.js";
+import migrateFromSQLite from "./utils/migrateFromSQLite.js";
 import "colors";
 
 const client = new Client({
@@ -27,7 +28,22 @@ const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
 
 let commands = [];
 
+const sqliteRows = process.env.DB_STORAGE
+  ? await migrateFromSQLite(process.env.DB_STORAGE)
+  : [];
+
 const db = await createDB(process.env.DB_STORAGE);
+
+for (const row of sqliteRows) {
+  try {
+    await db.create(row);
+  } catch {
+    // skip duplicates
+  }
+}
+if (sqliteRows.length) {
+  console.log(`Migrated ${sqliteRows.length} TempRole(s) from SQLite to nedb.`);
+}
 
 client.once("clientReady", async () => {
   const now = new Date();
