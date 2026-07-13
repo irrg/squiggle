@@ -97,6 +97,13 @@ client.once("clientReady", async () => {
       (command) => `\`/${command.name}\`: ${command.description}`,
     );
     sendDebugMessage(client, commandMessages, { suboption: true });
+
+    for (const guild of client.guilds.cache.values()) {
+      await rest.put(
+        Routes.applicationGuildCommands(client.application.id, guild.id),
+        { body: [] },
+      );
+    }
   } catch (error) {
     console.error("Error registering commands:", error);
     await sendDebugMessage(
