@@ -20,6 +20,15 @@ export const options = [
     ],
   },
   {
+    name: "grant",
+    type: 1,
+    description: "Manually grant a temp role (16-hour expiration)",
+    options: [
+      { name: "member", type: 6, description: "Member", required: true },
+      { name: "role", type: 8, description: "Role", required: true },
+    ],
+  },
+  {
     name: "run-worker",
     type: 1,
     description: "Trigger the temp-roles worker now",
@@ -67,6 +76,38 @@ export async function init(interaction, client, db) {
     }
     return interaction.reply({
       content: `Removed **${targetRole.name}** from **${targetMember.displayName}** (${rows.length} record${rows.length > 1 ? "s" : ""} deleted).`,
+      ephemeral: true,
+    });
+  }
+
+  if (sub === "grant") {
+    const targetMember = interaction.options.getMember("member");
+    const targetRole = interaction.options.getRole("role");
+    const expirationTime = new Date(Date.now() + 16 * 60 * 60 * 1000);
+    await targetMember.roles.add(targetRole);
+    try {
+      await db.create({
+        guildId: interaction.guildId,
+        memberId: targetMember.id,
+        memberName: targetMember.nickname || targetMember.user.username,
+        roleId: targetRole.id,
+        roleName: targetRole.name,
+        messageId: interaction.id,
+        expirationTime,
+        maxReactionCount: 0,
+      });
+    } catch (err) {
+      if (err.name === "SequelizeUniqueConstraintError") {
+        return interaction.reply({
+          content: `**${targetMember.displayName}** already has an active **${targetRole.name}** record.`,
+          ephemeral: true,
+        });
+      }
+      await targetMember.roles.remove(targetRole).catch(() => {});
+      throw err;
+    }
+    return interaction.reply({
+      content: `Granted **${targetRole.name}** to **${targetMember.displayName}** for 16 hours.`,
       ephemeral: true,
     });
   }
