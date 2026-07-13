@@ -1,5 +1,10 @@
+import pc from "picocolors";
+import config from "../../config/config.json" with { type: "json" };
+
+const DEFAULT_DEBUG_CHANNEL = "🤖bot-messages";
+
 /**
- * Sends a debug message to the #🤖bot-messages channel and logs it to the console.
+ * Sends a debug message to the configured debug channel and logs it to the console.
  * @param {Client} client - The Discord client.
  * @param {string|string[]} messages - The debug message(s) to send.
  * @param {Object} options - Additional options for formatting.
@@ -12,41 +17,30 @@ const sendDebugMessage = async (client, messages, options = {}) => {
   const emoji = options.emoji || "⚠️";
   const messageArray = Array.isArray(messages) ? messages : [messages];
 
-  // Add spaces before sub-items and handle emojis
-  const formattedMessages = messageArray.map((msg) => {
-    if (options.suboption) {
-      return `- ${msg}`;
-    }
-    return `${emoji} ${msg}`;
-  });
-
-  let plainMessage = formattedMessages.join("\n");
-  let debugMessage = messageArray
-    .map((msg) => {
-      if (options.suboption) {
-        return `- ${msg}`;
-      }
-      return `${emoji} ${msg}`;
-    })
+  // Sub-items render as list entries; everything else gets an emoji prefix
+  const formatted = messageArray
+    .map((msg) => (options.suboption ? `- ${msg}` : `${emoji} ${msg}`))
     .join("\n");
 
+  let plainMessage = formatted;
   // Strip backticks for console output
-  debugMessage = debugMessage.replace(/`/g, "");
+  let debugMessage = formatted.replace(/`/g, "");
 
   // Apply color and bold formatting for console output
-  if (options.color) {
-    debugMessage = debugMessage[options.color];
+  if (options.color && typeof pc[options.color] === "function") {
+    debugMessage = pc[options.color](debugMessage);
   }
   if (options.bold) {
-    debugMessage = debugMessage.bold;
+    debugMessage = pc.bold(debugMessage);
     plainMessage = `**${plainMessage}**`; // Bold the Discord message
   }
 
   console.log(debugMessage);
 
   // Send formatted message to Discord
+  const debugChannelName = config.bot.debugChannel || DEFAULT_DEBUG_CHANNEL;
   const debugChannel = client.channels.cache.find(
-    (ch) => ch.name === "🤖bot-messages",
+    (ch) => ch.name === debugChannelName,
   );
   if (debugChannel) {
     await debugChannel.send(plainMessage);

@@ -5,6 +5,9 @@
   "bin": "src/index.js",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "start": "cross-env NODE_ENV=production NODE_NO_WARNINGS=1 node . ",
     "dev": "cross-env NODE_ENV=development NODE_NO_WARNINGS=1 node .",
@@ -20,13 +23,12 @@
   "dependencies": {
     "@discordjs/rest": "^2.4.0",
     "@seald-io/nedb": "^4.0.2",
-    "colors": "^1.4.0",
     "date-fns": "^4.4.0",
     "date-fns-tz": "^3.2.0",
     "discord-api-types": "^0.38.49",
     "discord.js": "^14.16.2",
     "dotenv": "^17.4.2",
-    "winston": "^3.19.0"
+    "picocolors": "^1.1.1"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

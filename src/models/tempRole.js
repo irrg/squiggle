@@ -1,7 +1,9 @@
 import Datastore from "@seald-io/nedb";
 
 const createDB = async (filePath) => {
-  const opts = filePath ? { filename: filePath, autoload: true } : { inMemory: true };
+  const opts = filePath
+    ? { filename: filePath, autoload: true }
+    : { inMemory: true };
   const ds = new Datastore(opts);
 
   await ds.ensureIndexAsync({ fieldName: "messageId" });
@@ -33,6 +35,11 @@ const createDB = async (filePath) => {
 
   const findAll = async () => {
     const docs = await ds.findAsync({}).sort({ expirationTime: 1 });
+    return docs.map(toRow);
+  };
+
+  const findAllByGuild = async (guildId) => {
+    const docs = await ds.findAsync({ guildId }).sort({ expirationTime: 1 });
     return docs.map(toRow);
   };
 
@@ -69,7 +76,9 @@ const createDB = async (filePath) => {
   }) => {
     const now = Date.now();
     const expirationMs =
-      expirationTime instanceof Date ? expirationTime.getTime() : expirationTime;
+      expirationTime instanceof Date
+        ? expirationTime.getTime()
+        : expirationTime;
     const _id = makeId(guildId, memberId, roleId, messageId);
     try {
       const doc = await ds.insertAsync({
@@ -89,7 +98,7 @@ const createDB = async (filePath) => {
     } catch (err) {
       if (err.errorType === "uniqueViolated") {
         const uniqueErr = new Error("Unique constraint violated");
-        uniqueErr.name = "SequelizeUniqueConstraintError";
+        uniqueErr.name = "UniqueConstraintError";
         throw uniqueErr;
       }
       throw err;
@@ -98,11 +107,19 @@ const createDB = async (filePath) => {
 
   const extend = async (id, expirationTime, maxReactionCount) => {
     const expirationMs =
-      expirationTime instanceof Date ? expirationTime.getTime() : expirationTime;
+      expirationTime instanceof Date
+        ? expirationTime.getTime()
+        : expirationTime;
     const now = Date.now();
     await ds.updateAsync(
       { _id: id },
-      { $set: { expirationTime: expirationMs, maxReactionCount, updatedAt: now } },
+      {
+        $set: {
+          expirationTime: expirationMs,
+          maxReactionCount,
+          updatedAt: now,
+        },
+      },
     );
   };
 
@@ -123,6 +140,7 @@ const createDB = async (filePath) => {
 
   return {
     findAll,
+    findAllByGuild,
     findAllByMemberRole,
     findByMessageId,
     findByKey,

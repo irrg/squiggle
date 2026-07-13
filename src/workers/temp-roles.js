@@ -16,7 +16,18 @@ const run = async (client, db) => {
           await db.deleteById(tempRole.id);
           return;
         }
-        const member = await guild.members.fetch(tempRole.memberId);
+        let member;
+        try {
+          member = await guild.members.fetch(tempRole.memberId);
+        } catch {
+          // Member left the guild — drop the row or it retries every interval
+          await db.deleteById(tempRole.id);
+          await sendDebugMessage(
+            client,
+            `Member ${tempRole.memberName} (${tempRole.memberId}) not in guild; removed expired tempRole row ${tempRole.id}`,
+          );
+          return;
+        }
         const memberName = member.nickname || member.user.username;
 
         const hasLater = await db.hasLaterExpiration(

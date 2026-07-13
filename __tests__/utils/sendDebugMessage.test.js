@@ -1,5 +1,10 @@
 import { describe, it, expect, vi } from "vitest";
-import sendDebugMessage from "../../src/utils/sendDebugMessage.js";
+
+// No debugChannel configured — util must fall back to the default name
+vi.mock("../../config/config.json", () => ({ default: { bot: {} } }));
+
+const { default: sendDebugMessage } =
+  await import("../../src/utils/sendDebugMessage.js");
 
 const makeClient = (channelFound = true) => {
   const mockChannel = { send: vi.fn().mockResolvedValue(undefined) };

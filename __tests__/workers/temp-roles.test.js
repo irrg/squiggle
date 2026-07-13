@@ -55,7 +55,9 @@ describe("temp-roles worker", () => {
     await run(mockClient, db);
 
     expect(mockMember.roles.remove).not.toHaveBeenCalled();
-    expect(await db.findByKey("guild-1", "member-1", "role-1", "msg-1")).not.toBeNull();
+    expect(
+      await db.findByKey("guild-1", "member-1", "role-1", "msg-1"),
+    ).not.toBeNull();
   });
 
   it("removes role and deletes all matching rows when expired with no later row", async () => {
@@ -67,7 +69,9 @@ describe("temp-roles worker", () => {
     await run(mockClient, db);
 
     expect(mockMember.roles.remove).toHaveBeenCalledWith(mockRole);
-    expect(await db.findByKey("guild-1", "member-1", "role-1", "msg-1")).toBeNull();
+    expect(
+      await db.findByKey("guild-1", "member-1", "role-1", "msg-1"),
+    ).toBeNull();
   });
 
   it("only deletes expired row when a later expiration exists, role stays", async () => {
@@ -84,8 +88,12 @@ describe("temp-roles worker", () => {
     await run(mockClient, db);
 
     expect(mockMember.roles.remove).not.toHaveBeenCalled();
-    expect(await db.findByKey("guild-1", "member-1", "role-1", "msg-1")).toBeNull();
-    expect(await db.findByKey("guild-1", "member-1", "role-1", "msg-2")).not.toBeNull();
+    expect(
+      await db.findByKey("guild-1", "member-1", "role-1", "msg-1"),
+    ).toBeNull();
+    expect(
+      await db.findByKey("guild-1", "member-1", "role-1", "msg-2"),
+    ).not.toBeNull();
   });
 
   it("destroys orphaned row and skips role removal when guild not in cache", async () => {
@@ -98,7 +106,9 @@ describe("temp-roles worker", () => {
     await run(mockClient, db);
 
     expect(mockMember.roles.remove).not.toHaveBeenCalled();
-    expect(await db.findByKey("guild-1", "member-1", "role-1", "msg-1")).toBeNull();
+    expect(
+      await db.findByKey("guild-1", "member-1", "role-1", "msg-1"),
+    ).toBeNull();
   });
 
   it("destroys orphaned row and skips role removal when role not in cache", async () => {
@@ -111,7 +121,23 @@ describe("temp-roles worker", () => {
     await run(mockClient, db);
 
     expect(mockMember.roles.remove).not.toHaveBeenCalled();
-    expect(await db.findByKey("guild-1", "member-1", "role-1", "msg-1")).toBeNull();
+    expect(
+      await db.findByKey("guild-1", "member-1", "role-1", "msg-1"),
+    ).toBeNull();
+  });
+
+  it("deletes row when member has left the guild instead of retrying forever", async () => {
+    await db.create({
+      ...base,
+      expirationTime: new Date(Date.now() - 60 * 60 * 1000),
+    });
+    mockGuild.members.fetch.mockRejectedValueOnce(new Error("Unknown Member"));
+
+    await run(mockClient, db);
+
+    expect(
+      await db.findByKey("guild-1", "member-1", "role-1", "msg-1"),
+    ).toBeNull();
   });
 
   it("catches errors and does not throw", async () => {

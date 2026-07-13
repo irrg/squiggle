@@ -56,7 +56,9 @@ describe("TempRole model", () => {
   });
 
   it("findByKey returns null when not found", async () => {
-    expect(await db.findByKey("guild-1", "member-1", "role-1", "no-msg")).toBeNull();
+    expect(
+      await db.findByKey("guild-1", "member-1", "role-1", "no-msg"),
+    ).toBeNull();
   });
 
   it("extend updates expiration time and maxReactionCount", async () => {
@@ -66,7 +68,12 @@ describe("TempRole model", () => {
     const extended = new Date(initial.getTime() + 4 * 60 * 60 * 1000);
     await db.extend(record.id, extended, 5);
 
-    const updated = await db.findByKey("guild-1", "member-1", "role-1", "msg-1");
+    const updated = await db.findByKey(
+      "guild-1",
+      "member-1",
+      "role-1",
+      "msg-1",
+    );
     expect(updated.expirationTime.getTime()).toBe(extended.getTime());
     expect(updated.maxReactionCount).toBe(5);
   });
@@ -76,15 +83,24 @@ describe("TempRole model", () => {
     const deleted = await db.deleteById(record.id);
 
     expect(deleted).toBe(1);
-    expect(await db.findByKey("guild-1", "member-1", "role-1", "msg-1")).toBeNull();
+    expect(
+      await db.findByKey("guild-1", "member-1", "role-1", "msg-1"),
+    ).toBeNull();
   });
 
   it("deleteByKey removes the row and returns changes count", async () => {
     await db.create({ ...base, expirationTime: new Date() });
-    const deleted = await db.deleteByKey("guild-1", "member-1", "role-1", "msg-1");
+    const deleted = await db.deleteByKey(
+      "guild-1",
+      "member-1",
+      "role-1",
+      "msg-1",
+    );
 
     expect(deleted).toBe(1);
-    expect(await db.findByKey("guild-1", "member-1", "role-1", "msg-1")).toBeNull();
+    expect(
+      await db.findByKey("guild-1", "member-1", "role-1", "msg-1"),
+    ).toBeNull();
   });
 
   it("stores maxReactionCount on create", async () => {
@@ -117,7 +133,12 @@ describe("TempRole model", () => {
     await db.create({ ...base, messageId: "msg-2", expirationTime: later });
 
     expect(
-      await db.hasLaterExpiration("guild-1", "member-1", "role-1", earlier.getTime()),
+      await db.hasLaterExpiration(
+        "guild-1",
+        "member-1",
+        "role-1",
+        earlier.getTime(),
+      ),
     ).toBe(true);
   });
 
@@ -130,12 +151,28 @@ describe("TempRole model", () => {
     ).toBe(false);
   });
 
-  it("throws SequelizeUniqueConstraintError on duplicate key", async () => {
+  it("findAllByGuild returns only rows for that guild", async () => {
+    const future = new Date(Date.now() + 60 * 60 * 1000);
+    await db.create({ ...base, expirationTime: future });
+    await db.create({
+      ...base,
+      guildId: "guild-2",
+      messageId: "msg-2",
+      expirationTime: future,
+    });
+
+    const rows = await db.findAllByGuild("guild-1");
+    expect(rows).toHaveLength(1);
+    expect(rows[0].guildId).toBe("guild-1");
+    expect(rows[0].expirationTime).toBeInstanceOf(Date);
+  });
+
+  it("throws UniqueConstraintError on duplicate key", async () => {
     const expirationTime = new Date(Date.now() + 60 * 60 * 1000);
     await db.create({ ...base, expirationTime });
 
     await expect(db.create({ ...base, expirationTime })).rejects.toMatchObject({
-      name: "SequelizeUniqueConstraintError",
+      name: "UniqueConstraintError",
     });
   });
 
@@ -151,7 +188,12 @@ describe("TempRole model", () => {
     const shouldExtend = reactionCount > record.maxReactionCount;
     expect(shouldExtend).toBe(false);
 
-    const unchanged = await db.findByKey("guild-1", "member-1", "role-1", "msg-1");
+    const unchanged = await db.findByKey(
+      "guild-1",
+      "member-1",
+      "role-1",
+      "msg-1",
+    );
     expect(unchanged.expirationTime.getTime()).toBe(initial.getTime());
   });
 
@@ -169,7 +211,12 @@ describe("TempRole model", () => {
       await db.extend(record.id, extended, reactionCount);
     }
 
-    const updated = await db.findByKey("guild-1", "member-1", "role-1", "msg-1");
+    const updated = await db.findByKey(
+      "guild-1",
+      "member-1",
+      "role-1",
+      "msg-1",
+    );
     expect(updated.maxReactionCount).toBe(5);
     expect(updated.expirationTime.getTime()).toBeGreaterThan(initial.getTime());
   });

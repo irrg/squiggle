@@ -1,31 +1,17 @@
 {
-  "discord": {
-    "token": ""
-  },
   "bot": {
-    "env": "",
     "namePrefix": "",
     "commandPrefix": "",
-    // NOTE:
-    // only use one:
+    "debugChannel": "🤖bot-messages",
     "whitelist": [],
-    // OR
     "blacklist": []
-  },
-  "database": {
-    "name": "",
-    "user": "",
-    "password": "",
-    "host": "",
-    "dialect": "",
-    "storage": ""
   },
   "commands": {
     "didAThing": [
       {
-        "name": "(name we call it)",
-        "role": "(name of role in Discord)",
-        "color": "#RGBCOL"
+        "name": "coding",
+        "role": "People who coded today",
+        "color": "#5865F2"
       }
     ]
   },
@@ -33,19 +19,19 @@
     "reactionRoles": [
       {
         "emojiName": "🤷",
-        "threshold": 4, // how many reactions are needed to trigger
-        "roleName": "(name of role in Discord)",
-        "color": "#RGBCOL",
-        "forwardChannel": "(optional) channel name to forward the message to on grant"
+        "threshold": 4,
+        "roleName": "People who are shrugging",
+        "color": "#00FF00",
+        "forwardChannel": "showcase"
       }
     ],
     "combinedReactionRoles": [
       {
-        "emojiNames": ["TheBest", "TheWorst"], // all must hit threshold
+        "emojiNames": ["TheBest", "TheWorst"],
         "threshold": 4,
-        "roleName": "(name of role in Discord)",
-        "color": "#RGBCOL",
-        "forwardChannel": "(optional) channel name to forward the message to on grant"
+        "roleName": "People who are controversial",
+        "color": "#FF00FF",
+        "forwardChannel": "showcase"
       }
     ]
   }

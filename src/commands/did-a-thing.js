@@ -1,5 +1,10 @@
-import { ApplicationCommandOptionType, EmbedBuilder } from "discord.js";
+import {
+  ApplicationCommandOptionType,
+  EmbedBuilder,
+  MessageFlags,
+} from "discord.js";
 import config from "../../config/config.json" with { type: "json" };
+import { DID_A_THING_DURATION_MS } from "../constants.js";
 
 const { String } = ApplicationCommandOptionType;
 
@@ -18,7 +23,7 @@ const options = [
   },
   {
     name: "caption",
-    description: "Describe what you did (optional)",
+    description: "Describe what you did",
     type: String,
     required: true,
   },
@@ -31,7 +36,10 @@ const init = async (interaction, client, db) => {
   const thingObject = things.find(({ name }) => name === thing);
 
   if (!thingObject) {
-    await interaction.reply({ content: "Unknown thing.", ephemeral: true });
+    await interaction.reply({
+      content: "Unknown thing.",
+      flags: MessageFlags.Ephemeral,
+    });
     return;
   }
 
@@ -42,14 +50,12 @@ const init = async (interaction, client, db) => {
   if (!role) {
     await interaction.reply({
       content: `Role "${thingObject.role}" not found.`,
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
     return;
   }
 
-  const expirationDateTime = new Date(
-    new Date().getTime() + 24 * 60 * 60 * 1000,
-  );
+  const expirationDateTime = new Date(Date.now() + DID_A_THING_DURATION_MS);
 
   await interaction.deferReply();
 
@@ -65,7 +71,7 @@ const init = async (interaction, client, db) => {
         name: memberName,
         iconURL: member.displayAvatarURL(),
       })
-      .setDescription(caption)
+      .setDescription(caption ?? null)
       .setTimestamp();
 
     const reply = await interaction.editReply({ embeds: [embed] });
@@ -87,7 +93,7 @@ const init = async (interaction, client, db) => {
       await interaction.followUp({
         content:
           "Something went wrong saving your progress. Role has been removed.",
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
       console.error(dbError);
     }

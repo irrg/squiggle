@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { handleReactionAdd, handleReactionRemove } from "../../src/handlers/reactions.js";
+import {
+  handleReactionAdd,
+  handleReactionRemove,
+} from "../../src/handlers/reactions.js";
 
 // --- Module mocks ---
 
@@ -13,10 +16,18 @@ vi.mock("../../src/utils/canPostInChannel.js", () => ({
 
 vi.mock("discord.js", () => ({
   EmbedBuilder: class {
-    setTitle() { return this; }
-    setColor() { return this; }
-    setAuthor() { return this; }
-    setTimestamp() { return this; }
+    setTitle() {
+      return this;
+    }
+    setColor() {
+      return this;
+    }
+    setAuthor() {
+      return this;
+    }
+    setTimestamp() {
+      return this;
+    }
   },
 }));
 
@@ -25,7 +36,19 @@ vi.mock("discord.js", () => ({
 const testConfig = {
   workers: {
     reactionRoles: [
-      { emojiName: "👍", threshold: 3, roleName: "Good Person", color: "#00ff00" },
+      {
+        emojiName: "👍",
+        threshold: 3,
+        roleName: "Good Person",
+        color: "#00ff00",
+      },
+      {
+        emojiName: "📦",
+        threshold: 1,
+        roleName: "Good Person",
+        color: "#00ff00",
+        forwardChannel: "showcase",
+      },
     ],
     combinedReactionRoles: [
       {
@@ -50,7 +73,11 @@ const mockTempRole = {
   deleteById: vi.fn().mockResolvedValue(undefined),
 };
 
-const deps = () => ({ client: mockClient, TempRole: mockTempRole, config: testConfig });
+const deps = () => ({
+  client: mockClient,
+  TempRole: mockTempRole,
+  config: testConfig,
+});
 
 // --- Factories ---
 
@@ -119,7 +146,8 @@ describe("messageReactionAdd handler", () => {
   });
 
   it("ignores reactions in disallowed channels", async () => {
-    const { default: canPostInChannel } = await import("../../src/utils/canPostInChannel.js");
+    const { default: canPostInChannel } =
+      await import("../../src/utils/canPostInChannel.js");
     canPostInChannel.mockReturnValueOnce(false);
 
     await handleReactionAdd(makeReaction(), makeUser(), deps());
@@ -197,28 +225,100 @@ describe("messageReactionAdd handler", () => {
     expect(reaction.message.reply).not.toHaveBeenCalled();
   });
 
-  it("does not roll back role on SequelizeUniqueConstraintError (race condition)", async () => {
+  it("does not roll back role on UniqueConstraintError (race condition)", async () => {
     const uniqueError = new Error("Unique constraint");
-    uniqueError.name = "SequelizeUniqueConstraintError";
+    uniqueError.name = "UniqueConstraintError";
     mockTempRole.create.mockRejectedValueOnce(uniqueError);
 
     const reaction = makeReaction({ count: 4, me: true });
     await handleReactionAdd(reaction, makeUser(), deps());
 
-    const member = await reaction.message.guild.members.fetch.mock.results[0].value;
+    const member =
+      await reaction.message.guild.members.fetch.mock.results[0].value;
     expect(member.roles.remove).not.toHaveBeenCalled();
   });
 
   it("looks up real memberId from TempRole when message is bot-authored", async () => {
-    mockTempRole.findByMessageId.mockResolvedValueOnce({ memberId: "real-user-id" });
+    mockTempRole.findByMessageId.mockResolvedValueOnce({
+      memberId: "real-user-id",
+    });
     mockTempRole.findByKey.mockResolvedValue(null);
 
-    const reaction = makeReaction({ emoji: { name: "👍" }, count: 4, me: true });
+    const reaction = makeReaction({
+      emoji: { name: "👍" },
+      count: 4,
+      me: true,
+    });
     reaction.message.author = { id: "bot-id", bot: true };
 
     await handleReactionAdd(reaction, makeUser(), deps());
 
-    expect(reaction.message.guild.members.fetch).toHaveBeenCalledWith("real-user-id");
+    expect(reaction.message.guild.members.fetch).toHaveBeenCalledWith(
+      "real-user-id",
+    );
+  });
+
+  it("forwards the message when forwardChannel is configured and found", async () => {
+    const reaction = makeReaction({
+      emoji: { name: "📦" },
+      count: 2,
+      me: true,
+    });
+    const fwdChannel = { name: "showcase" };
+    reaction.message.guild.channels.cache.find = vi
+      .fn()
+      .mockReturnValue(fwdChannel);
+
+    await handleReactionAdd(reaction, makeUser(), deps());
+
+    expect(reaction.message.forward).toHaveBeenCalledWith(fwdChannel);
+  });
+
+  it("logs a debug message when forwardChannel is configured but missing", async () => {
+    const { default: sendDebugMessage } =
+      await import("../../src/utils/sendDebugMessage.js");
+    const reaction = makeReaction({
+      emoji: { name: "📦" },
+      count: 2,
+      me: true,
+    });
+    reaction.message.guild.channels.cache.find = vi
+      .fn()
+      .mockReturnValue(undefined);
+
+    await handleReactionAdd(reaction, makeUser(), deps());
+
+    expect(reaction.message.forward).not.toHaveBeenCalled();
+    expect(sendDebugMessage).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.stringContaining("showcase"),
+    );
+  });
+
+  it("does not crash when message author is null", async () => {
+    const reaction = makeReaction();
+    reaction.message.author = null;
+
+    await expect(
+      handleReactionAdd(reaction, makeUser(), deps()),
+    ).resolves.toBeUndefined();
+
+    expect(mockTempRole.create).not.toHaveBeenCalled();
+  });
+
+  it("resolves author from TempRole when author is null and a record exists", async () => {
+    mockTempRole.findByMessageId.mockResolvedValueOnce({
+      memberId: "real-user-id",
+    });
+
+    const reaction = makeReaction({ count: 4, me: true });
+    reaction.message.author = null;
+
+    await handleReactionAdd(reaction, makeUser(), deps());
+
+    expect(reaction.message.guild.members.fetch).toHaveBeenCalledWith(
+      "real-user-id",
+    );
   });
 
   it("returns early when bot-authored message has no source TempRole", async () => {
@@ -239,8 +339,16 @@ describe("combined reaction role handling", () => {
   const makeCombinedReaction = (bestCount, worstCount) => {
     const reaction = makeReaction({ emoji: { name: "TheBest" } });
     reaction.message.reactions.cache.find = vi.fn().mockImplementation((fn) => {
-      const best = { emoji: { name: "TheBest" }, count: bestCount + 1, me: true };
-      const worst = { emoji: { name: "TheWorst" }, count: worstCount + 1, me: true };
+      const best = {
+        emoji: { name: "TheBest" },
+        count: bestCount + 1,
+        me: true,
+      };
+      const worst = {
+        emoji: { name: "TheWorst" },
+        count: worstCount + 1,
+        me: true,
+      };
       return fn(best) ? best : fn(worst) ? worst : undefined;
     });
     reaction.message.guild.roles.cache.find = vi.fn().mockReturnValue({
@@ -293,8 +401,16 @@ describe("messageReactionRemove handler", () => {
   const makeCombinedRemoveReaction = (bestCount, worstCount) => {
     const reaction = makeReaction({ emoji: { name: "TheBest" } });
     reaction.message.reactions.cache.find = vi.fn().mockImplementation((fn) => {
-      const best = { emoji: { name: "TheBest" }, count: bestCount + 1, me: true };
-      const worst = { emoji: { name: "TheWorst" }, count: worstCount + 1, me: true };
+      const best = {
+        emoji: { name: "TheBest" },
+        count: bestCount + 1,
+        me: true,
+      };
+      const worst = {
+        emoji: { name: "TheWorst" },
+        count: worstCount + 1,
+        me: true,
+      };
       return fn(best) ? best : fn(worst) ? worst : undefined;
     });
     reaction.message.guild.roles.cache.find = vi.fn().mockReturnValue({
@@ -312,7 +428,8 @@ describe("messageReactionRemove handler", () => {
     const reaction = makeCombinedRemoveReaction(1, 2);
     await handleReactionRemove(reaction, makeUser(), deps());
 
-    const member = await reaction.message.guild.members.fetch.mock.results[0].value;
+    const member =
+      await reaction.message.guild.members.fetch.mock.results[0].value;
     expect(member.roles.remove).toHaveBeenCalled();
     expect(mockTempRole.deleteById).toHaveBeenCalledWith(existingTempRole.id);
   });
@@ -323,6 +440,17 @@ describe("messageReactionRemove handler", () => {
     await handleReactionRemove(reaction, makeUser(), deps());
 
     expect(mockTempRole.findByKey).not.toHaveBeenCalled();
+  });
+
+  it("does not crash on remove when message author is null", async () => {
+    const reaction = makeCombinedRemoveReaction(1, 1); // below threshold
+    reaction.message.author = null;
+
+    await expect(
+      handleReactionRemove(reaction, makeUser(), deps()),
+    ).resolves.toBeUndefined();
+
+    expect(mockTempRole.deleteById).not.toHaveBeenCalled();
   });
 
   it("does nothing when no TempRole exists for the combined role", async () => {

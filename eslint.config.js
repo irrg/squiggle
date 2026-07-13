@@ -14,13 +14,13 @@ export default [
       globals: {
         ...globals.node,
         ...globals.es2021,
-        appRoot: "readonly",
       },
     },
     rules: {
       "no-console": "off",
       "prettier/prettier": "error",
-      "import-x/no-unresolved": "off",
+      // config/config.json is gitignored (per-deploy), so it can't resolve in a fresh checkout
+      "import-x/no-unresolved": ["error", { ignore: ["config\\.json$"] }],
     },
   },
 ];

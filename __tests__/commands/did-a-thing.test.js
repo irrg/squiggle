@@ -14,16 +14,27 @@ vi.mock("../../config/config.json", () => ({
 
 vi.mock("discord.js", () => ({
   ApplicationCommandOptionType: { String: 3 },
+  MessageFlags: { Ephemeral: 64 },
   EmbedBuilder: class {
-    setTitle() { return this; }
-    setColor() { return this; }
-    setAuthor() { return this; }
-    setDescription() { return this; }
-    setTimestamp() { return this; }
+    setTitle() {
+      return this;
+    }
+    setColor() {
+      return this;
+    }
+    setAuthor() {
+      return this;
+    }
+    setDescription() {
+      return this;
+    }
+    setTimestamp() {
+      return this;
+    }
   },
 }));
 
-const { init } = await import("../../src/commands/did-a-thing.js");
+const { init, options } = await import("../../src/commands/did-a-thing.js");
 
 let db;
 
@@ -66,9 +77,11 @@ const makeInteraction = (thingName = "coding") => {
       displayAvatarURL: vi.fn().mockReturnValue("https://example.com/avatar"),
     },
     options: {
-      getString: vi.fn().mockImplementation((key) =>
-        key === "thing" ? thingName : "I wrote some code!",
-      ),
+      getString: vi
+        .fn()
+        .mockImplementation((key) =>
+          key === "thing" ? thingName : "I wrote some code!",
+        ),
     },
     reply: vi.fn().mockResolvedValue(undefined),
     deferReply: vi.fn().mockResolvedValue(undefined),
@@ -84,13 +97,19 @@ const mockClient = {
 };
 
 describe("did-a-thing command", () => {
+  it("declares caption as required with no misleading label", () => {
+    const caption = options.find((o) => o.name === "caption");
+    expect(caption.required).toBe(true);
+    expect(caption.description).not.toContain("optional");
+  });
+
   it("replies ephemeral when thing not in config", async () => {
     const interaction = makeInteraction("unknown-thing");
 
     await init(interaction, mockClient, db);
 
     expect(interaction.reply).toHaveBeenCalledWith(
-      expect.objectContaining({ ephemeral: true }),
+      expect.objectContaining({ flags: 64 }),
     );
     expect(interaction.member.roles.add).not.toHaveBeenCalled();
   });
@@ -102,7 +121,7 @@ describe("did-a-thing command", () => {
     await init(interaction, mockClient, db);
 
     expect(interaction.reply).toHaveBeenCalledWith(
-      expect.objectContaining({ ephemeral: true }),
+      expect.objectContaining({ flags: 64 }),
     );
     expect(interaction.member.roles.add).not.toHaveBeenCalled();
   });
@@ -117,7 +136,12 @@ describe("did-a-thing command", () => {
     expect(interaction.editReply).toHaveBeenCalled();
     expect(interaction._reply.react).toHaveBeenCalledWith("🙌");
 
-    const row = await db.findByKey("guild-1", "member-1", "role-1", "reply-msg-id");
+    const row = await db.findByKey(
+      "guild-1",
+      "member-1",
+      "role-1",
+      "reply-msg-id",
+    );
     expect(row).not.toBeNull();
     expect(row.memberId).toBe("member-1");
     expect(row.roleId).toBe("role-1");
@@ -151,7 +175,7 @@ describe("did-a-thing command", () => {
 
     expect(interaction.member.roles.remove).toHaveBeenCalled();
     expect(interaction.followUp).toHaveBeenCalledWith(
-      expect.objectContaining({ ephemeral: true }),
+      expect.objectContaining({ flags: 64 }),
     );
   });
 });
