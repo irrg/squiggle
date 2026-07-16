@@ -1,4 +1,4 @@
-import { EmbedBuilder } from "discord.js";
+import { EmbedBuilder, MessageReferenceType } from "discord.js";
 import canPostInChannel from "../utils/canPostInChannel.js";
 import sendDebugMessage from "../utils/sendDebugMessage.js";
 import formatError from "../utils/formatError.js";
@@ -30,6 +30,32 @@ async function fetchPartialMessage(message, client) {
     await sendDebugMessage(client, `Error fetching message: ${error.message}`);
     return false;
   }
+}
+
+// Anyone can react 🚫 on a bot forward in a forward channel to remove it
+// (e.g. the original author would rather post it themselves).
+async function deleteForwardIfVetoed(reaction, message, { client, config }) {
+  if (reaction.emoji.name !== "🚫") return false;
+  if (message.author?.id !== client.user?.id) return false;
+  if (message.reference?.type !== MessageReferenceType.Forward) return false;
+
+  const forwardChannels = [
+    ...config.workers.reactionRoles,
+    ...(config.workers.combinedReactionRoles ?? []),
+  ]
+    .map((role) => role.forwardChannel)
+    .filter(Boolean);
+  if (!forwardChannels.includes(message.channel.name)) return false;
+
+  try {
+    await message.delete();
+  } catch (error) {
+    await sendDebugMessage(
+      client,
+      `Error deleting vetoed forward: ${formatError(error)}`,
+    );
+  }
+  return true;
 }
 
 async function forwardIfConfigured({ client, guild, message, channelName }) {
@@ -124,6 +150,9 @@ export async function handleReactionAdd(
   const { message } = reaction;
 
   if (!(await fetchPartialMessage(message, client))) return;
+
+  if (await deleteForwardIfVetoed(reaction, message, { client, config }))
+    return;
 
   const { channel, guild } = message;
 

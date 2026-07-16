@@ -15,6 +15,7 @@ vi.mock("../../src/utils/canPostInChannel.js", () => ({
 }));
 
 vi.mock("discord.js", () => ({
+  MessageReferenceType: { Default: 0, Forward: 1 },
   EmbedBuilder: class {
     setTitle() {
       return this;
@@ -115,6 +116,7 @@ const makeMessage = (overrides = {}) => ({
   reactions: { cache: { find: vi.fn() } },
   reply: vi.fn().mockResolvedValue(undefined),
   forward: vi.fn().mockResolvedValue(undefined),
+  delete: vi.fn().mockResolvedValue(undefined),
   ...overrides,
 });
 
@@ -330,6 +332,76 @@ describe("messageReactionAdd handler", () => {
     await handleReactionAdd(reaction, makeUser(), deps());
 
     expect(mockTempRole.create).not.toHaveBeenCalled();
+  });
+});
+
+// --- 🚫 deletes forwarded message tests ---
+
+describe("🚫 reaction on forwarded messages", () => {
+  const makeForwardReaction = (overrides = {}) => {
+    const reaction = makeReaction({
+      emoji: { name: "🚫" },
+      count: 1,
+      me: false,
+    });
+    reaction.message.author = { id: "bot-id", bot: true };
+    reaction.message.reference = { type: 1 }; // MessageReferenceType.Forward
+    reaction.message.channel.name = "showcase";
+    Object.assign(reaction.message, overrides);
+    return reaction;
+  };
+
+  it("deletes a bot forward in a forward channel and skips role logic", async () => {
+    const reaction = makeForwardReaction();
+
+    await handleReactionAdd(reaction, makeUser(), deps());
+
+    expect(reaction.message.delete).toHaveBeenCalled();
+    expect(mockTempRole.findByMessageId).not.toHaveBeenCalled();
+    expect(mockTempRole.findByKey).not.toHaveBeenCalled();
+  });
+
+  it("does not delete a user-authored message on 🚫", async () => {
+    const reaction = makeForwardReaction({
+      author: { id: "author-id", bot: false },
+    });
+
+    await handleReactionAdd(reaction, makeUser(), deps());
+
+    expect(reaction.message.delete).not.toHaveBeenCalled();
+  });
+
+  it("does not delete a bot message that is not a forward", async () => {
+    const reaction = makeForwardReaction({ reference: undefined });
+
+    await handleReactionAdd(reaction, makeUser(), deps());
+
+    expect(reaction.message.delete).not.toHaveBeenCalled();
+  });
+
+  it("does not delete a forward outside configured forward channels", async () => {
+    const reaction = makeForwardReaction();
+    reaction.message.channel.name = "general";
+
+    await handleReactionAdd(reaction, makeUser(), deps());
+
+    expect(reaction.message.delete).not.toHaveBeenCalled();
+  });
+
+  it("sends a debug message and resolves when delete fails", async () => {
+    const { default: sendDebugMessage } =
+      await import("../../src/utils/sendDebugMessage.js");
+    const reaction = makeForwardReaction();
+    reaction.message.delete = vi.fn().mockRejectedValue(new Error("no perms"));
+
+    await expect(
+      handleReactionAdd(reaction, makeUser(), deps()),
+    ).resolves.toBeUndefined();
+
+    expect(sendDebugMessage).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.stringContaining("no perms"),
+    );
   });
 });
 
