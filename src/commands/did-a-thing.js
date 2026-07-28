@@ -4,7 +4,7 @@ import {
   MessageFlags,
 } from "discord.js";
 import config from "../../config/config.json" with { type: "json" };
-import { DID_A_THING_DURATION_MS } from "../constants.js";
+import { TEMP_ROLE_DURATION_MS } from "../constants.js";
 
 const { String } = ApplicationCommandOptionType;
 
@@ -55,7 +55,7 @@ const init = async (interaction, client, db) => {
     return;
   }
 
-  const expirationDateTime = new Date(Date.now() + DID_A_THING_DURATION_MS);
+  const expirationDateTime = new Date(Date.now() + TEMP_ROLE_DURATION_MS);
 
   await interaction.deferReply();
 
