@@ -161,7 +161,14 @@ export async function init(interaction, client, db) {
       const role = interaction.guild.roles.cache.find(
         (r) => r.name === roleName,
       );
-      if (!role) continue;
+      if (!role) {
+        fields.push({
+          name: roleName,
+          value:
+            "⚠️ role not found in this server — check config for typos/whitespace",
+        });
+        continue;
+      }
 
       const top = await db.topByRole(interaction.guildId, role.id, 3);
       const value = top.length

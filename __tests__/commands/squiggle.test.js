@@ -4,7 +4,10 @@ import createDB from "../../src/models/tempRole.js";
 vi.mock("../../config/config.json", () => ({
   default: {
     workers: {
-      reactionRoles: [{ roleName: "Cool Person" }],
+      reactionRoles: [
+        { roleName: "Cool Person" },
+        { roleName: "Missing Role" },
+      ],
       combinedReactionRoles: [{ roleName: "Controversial Person" }],
     },
   },
@@ -225,7 +228,17 @@ describe("squiggle admin command", () => {
     const embed = interaction.reply.mock.calls[0][0].embeds[0];
     expect(embed.fields).toEqual([
       { name: "Cool Person", value: "No data yet" },
+      { name: "Missing Role", value: expect.stringContaining("not found") },
       { name: "Controversial Person", value: "No data yet" },
     ]);
+  });
+
+  it("leaderboard flags a configured role that doesn't exist in the guild instead of silently dropping it", async () => {
+    const interaction = makeInteraction({ sub: "leaderboard" });
+    await init(interaction, mockClient, db);
+
+    const embed = interaction.reply.mock.calls[0][0].embeds[0];
+    const missingField = embed.fields.find((f) => f.name === "Missing Role");
+    expect(missingField.value).toContain("not found");
   });
 });
