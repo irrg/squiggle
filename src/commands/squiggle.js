@@ -1,6 +1,7 @@
 import { PermissionFlagsBits, EmbedBuilder, MessageFlags } from "discord.js";
 import { run as runWorker } from "../workers/temp-roles.js";
 import { TEMP_ROLE_DURATION_MS } from "../constants.js";
+import config from "../../config/config.json" with { type: "json" };
 
 export const commandName = "squiggle";
 export const description = "Squiggle admin commands";
@@ -33,6 +34,11 @@ export const options = [
     name: "run-worker",
     type: 1,
     description: "Trigger the temp-roles worker now",
+  },
+  {
+    name: "leaderboard",
+    type: 1,
+    description: "Show the top 3 members for each reaction role",
   },
 ];
 
@@ -141,5 +147,45 @@ export async function init(interaction, client, db) {
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
     await runWorker(client, db);
     return interaction.editReply({ content: "Worker ran." });
+  }
+
+  if (sub === "leaderboard") {
+    const configuredRoles = [
+      ...(config.workers.reactionRoles ?? []),
+      ...(config.workers.combinedReactionRoles ?? []),
+    ];
+    const roleNames = [...new Set(configuredRoles.map((r) => r.roleName))];
+
+    const fields = [];
+    for (const roleName of roleNames) {
+      const role = interaction.guild.roles.cache.find(
+        (r) => r.name === roleName,
+      );
+      if (!role) continue;
+
+      const top = await db.topByRole(interaction.guildId, role.id, 3);
+      const value = top.length
+        ? top
+            .map((t, i) => `${i + 1}. **${t.memberName}** — ${t.count}`)
+            .join("\n")
+        : "No data yet";
+      fields.push({ name: roleName, value });
+    }
+
+    if (fields.length === 0) {
+      return interaction.reply({
+        content: "No reaction roles configured for this server.",
+        flags: MessageFlags.Ephemeral,
+      });
+    }
+
+    const embed = new EmbedBuilder()
+      .setTitle("Reaction Role Leaderboard")
+      .setColor("#5865F2")
+      .addFields(fields);
+    return interaction.reply({
+      embeds: [embed],
+      flags: MessageFlags.Ephemeral,
+    });
   }
 }

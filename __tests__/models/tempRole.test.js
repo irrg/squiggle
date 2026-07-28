@@ -128,6 +128,88 @@ describe("TempRole model", () => {
     expect(results).toHaveLength(0);
   });
 
+  it("topByRole ranks members by number of rows for that role, most first", async () => {
+    const t = new Date(Date.now() + 60 * 60 * 1000);
+    // member-1: 3 rows, member-2: 1 row, member-3: 2 rows
+    await db.create({
+      ...base,
+      memberId: "member-1",
+      messageId: "msg-1",
+      expirationTime: t,
+    });
+    await db.create({
+      ...base,
+      memberId: "member-1",
+      messageId: "msg-2",
+      expirationTime: t,
+    });
+    await db.create({
+      ...base,
+      memberId: "member-1",
+      messageId: "msg-3",
+      expirationTime: t,
+    });
+    await db.create({
+      ...base,
+      memberId: "member-2",
+      messageId: "msg-4",
+      expirationTime: t,
+    });
+    await db.create({
+      ...base,
+      memberId: "member-3",
+      messageId: "msg-5",
+      expirationTime: t,
+    });
+    await db.create({
+      ...base,
+      memberId: "member-3",
+      messageId: "msg-6",
+      expirationTime: t,
+    });
+
+    const top = await db.topByRole("guild-1", "role-1", 3);
+
+    expect(top).toHaveLength(3);
+    expect(top[0]).toMatchObject({ memberId: "member-1", count: 3 });
+    expect(top[1]).toMatchObject({ memberId: "member-3", count: 2 });
+    expect(top[2]).toMatchObject({ memberId: "member-2", count: 1 });
+  });
+
+  it("topByRole respects the limit and only counts rows for that role", async () => {
+    const t = new Date(Date.now() + 60 * 60 * 1000);
+    await db.create({
+      ...base,
+      memberId: "member-1",
+      messageId: "msg-1",
+      expirationTime: t,
+    });
+    await db.create({
+      ...base,
+      memberId: "member-1",
+      messageId: "msg-2",
+      expirationTime: t,
+    });
+    await db.create({
+      ...base,
+      memberId: "member-2",
+      messageId: "msg-3",
+      expirationTime: t,
+    });
+    await db.create({
+      ...base,
+      memberId: "member-3",
+      roleId: "role-2",
+      messageId: "msg-4",
+      expirationTime: t,
+    });
+
+    const top = await db.topByRole("guild-1", "role-1", 1);
+
+    expect(top).toHaveLength(1);
+    expect(top[0].memberId).toBe("member-1");
+  });
+
   it("hasLaterExpiration returns true when a later row exists", async () => {
     const earlier = new Date(Date.now() - 60 * 60 * 1000);
     const later = new Date(Date.now() + 60 * 60 * 1000);

@@ -13,7 +13,7 @@ Tailored to one server's specific vibe — but the mechanics are general enough 
 - **Forward veto** — anyone can react 🚫 on a bot-forwarded message to delete it (e.g. if the original author would rather post it themselves)
 - **Extensions** — each genuinely new reactor adds 4 hours to the role's expiration
 - **Auto-expiry** — all roles expire after 16 hours; a worker cleans them up automatically. Once a role has expired, that message is retired — later reactions can't trigger a new grant on it
-- `/squiggle` — admin commands: list active temp roles, manually expire a role, manually grant a role, or trigger the worker on demand (Administrator permission required)
+- `/squiggle` — admin commands: list active temp roles, manually expire a role, manually grant a role, view a per-role leaderboard, or trigger the worker on demand (Administrator permission required)
 
 ## Requirements
 
@@ -105,6 +105,7 @@ npm start
 ```
 
 **`bot`**
+
 - `namePrefix` — prepended to the bot's name in debug messages
 - `commandPrefix` — prepended to all slash command names
 - `whitelist` / `blacklist` — restrict which channels the bot will post in (use one or neither)

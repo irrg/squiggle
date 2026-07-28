@@ -57,6 +57,24 @@ const createDB = async (filePath) => {
     return docs.map(toRow);
   };
 
+  const topByRole = async (guildId, roleId, limit = 3) => {
+    const docs = await ds.findAsync({ guildId, roleId });
+    const counts = new Map();
+    for (const doc of docs) {
+      const entry = counts.get(doc.memberId) ?? {
+        memberId: doc.memberId,
+        memberName: doc.memberName,
+        count: 0,
+      };
+      entry.count += 1;
+      entry.memberName = doc.memberName;
+      counts.set(doc.memberId, entry);
+    }
+    return [...counts.values()]
+      .sort((a, b) => b.count - a.count)
+      .slice(0, limit);
+  };
+
   const hasLaterExpiration = async (guildId, memberId, roleId, afterMs) => {
     const doc = await ds.findOneAsync({
       guildId,
@@ -129,7 +147,10 @@ const createDB = async (filePath) => {
 
   const markSpent = async (id) => {
     const now = Date.now();
-    await ds.updateAsync({ _id: id }, { $set: { spent: true, updatedAt: now } });
+    await ds.updateAsync(
+      { _id: id },
+      { $set: { spent: true, updatedAt: now } },
+    );
   };
 
   const deleteById = async (id) => {
@@ -149,6 +170,7 @@ const createDB = async (filePath) => {
     findByKey,
     findExpired,
     hasLaterExpiration,
+    topByRole,
     create,
     extend,
     markSpent,

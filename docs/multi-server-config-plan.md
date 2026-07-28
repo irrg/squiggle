@@ -18,7 +18,7 @@ Core change: config goes from a static import to a runtime per-guild lookup.
 
 - New model (`models/config.js`, mirroring `models/tempRole.js`) storing
   config docs keyed by `guildId`, same nedb approach as TempRole.
-- `config/config.json.example` becomes the *default template* for new
+- `config/config.json.example` becomes the _default template_ for new
   guilds, not the live source of truth.
 - Every static `import config from "../../config/config.json"` becomes "look
   up config for this guild":
@@ -29,7 +29,7 @@ Core change: config goes from a static import to a runtime per-guild lookup.
     per-guild lookup keyed by `message.guild.id`.
   - Command handlers (`did-a-thing.js`, `squiggle.js`) that read
     `commands.didAThing` choices need the same treatment.
-- **Sharpest edge:** Discord slash-command *option choices* (e.g.
+- **Sharpest edge:** Discord slash-command _option choices_ (e.g.
   didAThing's list of "coding"/etc.) are baked in at command-registration
   time. If that list differs per guild, global commands no longer work —
   must register per-guild (`Routes.applicationGuildCommands`) with
@@ -52,7 +52,7 @@ Discord at all.
   slash-command options. Two paths:
   - **Structured subcommands** per field, e.g.
     `/squiggle config reaction-role add emoji:🤷 threshold:4 role:@Name
-    color:#00FF00` — more command surface, but safe inputs, no parse step.
+color:#00FF00` — more command surface, but safe inputs, no parse step.
   - **Modal + raw JSON blob** — paste/edit a full config section as text,
     validate JSON + schema on submit. Much less command surface, but needs
     solid validation (bad hex color, missing role name, malformed JSON must
