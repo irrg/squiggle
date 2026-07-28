@@ -50,7 +50,10 @@ const createDB = async (filePath) => {
 
   const findExpired = async () => {
     const now = Date.now();
-    const docs = await ds.findAsync({ expirationTime: { $lt: now } });
+    const docs = await ds.findAsync({
+      expirationTime: { $lt: now },
+      spent: { $ne: true },
+    });
     return docs.map(toRow);
   };
 
@@ -91,6 +94,7 @@ const createDB = async (filePath) => {
         messageId,
         expirationTime: expirationMs,
         maxReactionCount,
+        spent: false,
         createdAt: now,
         updatedAt: now,
       });
@@ -123,14 +127,13 @@ const createDB = async (filePath) => {
     );
   };
 
-  const deleteById = async (id) => {
-    const numRemoved = await ds.removeAsync({ _id: id }, {});
-    return numRemoved;
+  const markSpent = async (id) => {
+    const now = Date.now();
+    await ds.updateAsync({ _id: id }, { $set: { spent: true, updatedAt: now } });
   };
 
-  const deleteByKey = async (guildId, memberId, roleId, messageId) => {
-    const id = makeId(guildId, memberId, roleId, messageId);
-    const numRemoved = await ds.removeAsync({ _id: id }, { multi: false });
+  const deleteById = async (id) => {
+    const numRemoved = await ds.removeAsync({ _id: id }, {});
     return numRemoved;
   };
 
@@ -148,8 +151,8 @@ const createDB = async (filePath) => {
     hasLaterExpiration,
     create,
     extend,
+    markSpent,
     deleteById,
-    deleteByKey,
     close,
   };
 };

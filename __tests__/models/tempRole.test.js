@@ -88,19 +88,13 @@ describe("TempRole model", () => {
     ).toBeNull();
   });
 
-  it("deleteByKey removes the row and returns changes count", async () => {
-    await db.create({ ...base, expirationTime: new Date() });
-    const deleted = await db.deleteByKey(
-      "guild-1",
-      "member-1",
-      "role-1",
-      "msg-1",
-    );
+  it("markSpent flags the row without deleting it", async () => {
+    const record = await db.create({ ...base, expirationTime: new Date() });
+    await db.markSpent(record.id);
 
-    expect(deleted).toBe(1);
-    expect(
-      await db.findByKey("guild-1", "member-1", "role-1", "msg-1"),
-    ).toBeNull();
+    const found = await db.findByKey("guild-1", "member-1", "role-1", "msg-1");
+    expect(found).not.toBeNull();
+    expect(found.spent).toBe(true);
   });
 
   it("stores maxReactionCount on create", async () => {
@@ -123,6 +117,15 @@ describe("TempRole model", () => {
     expect(results).toHaveLength(1);
     expect(results[0].messageId).toBe("msg-1");
     expect(results[0].expirationTime).toBeInstanceOf(Date);
+  });
+
+  it("findExpired excludes rows already marked spent", async () => {
+    const expired = new Date(Date.now() - 60 * 60 * 1000);
+    const record = await db.create({ ...base, expirationTime: expired });
+    await db.markSpent(record.id);
+
+    const results = await db.findExpired();
+    expect(results).toHaveLength(0);
   });
 
   it("hasLaterExpiration returns true when a later row exists", async () => {

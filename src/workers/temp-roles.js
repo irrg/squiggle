@@ -54,21 +54,12 @@ const run = async (client, db) => {
           await sendDebugMessage(client, msg);
           await member.roles.remove(role);
 
-          const deleted = await db.deleteByKey(
-            tempRole.guildId,
-            tempRole.memberId,
-            tempRole.roleId,
-            tempRole.messageId,
-          );
-          if (deleted > 0) {
-            const msg2 = `removed ${deleted} tempRole table row(s) for member ${memberName}, role ${role.name}, and message ${tempRole.messageId}`;
-            console.log(msg2);
-            await sendDebugMessage(client, msg2);
-          } else {
-            const msg2 = "deletion went wrong";
-            console.log(msg2);
-            await sendDebugMessage(client, msg2);
-          }
+          // Mark spent rather than delete, so a later reaction on the same
+          // message can't be mistaken for a fresh besting/worsting.
+          await db.markSpent(tempRole.id);
+          const msg2 = `marked tempRole row ${tempRole.id} spent for member ${memberName}, role ${role.name}, and message ${tempRole.messageId}`;
+          console.log(msg2);
+          await sendDebugMessage(client, msg2);
         }
       }),
     );

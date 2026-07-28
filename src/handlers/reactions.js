@@ -93,6 +93,8 @@ async function grantOrExtendTempRole({
   );
 
   if (existingTempRole) {
+    // Already expired and role removed — don't resurrect it as a "new" besting.
+    if (existingTempRole.spent) return;
     if (count > existingTempRole.maxReactionCount) {
       const expirationTime = new Date(
         existingTempRole.expirationTime.getTime() + TEMP_ROLE_EXTENSION_MS,
@@ -303,7 +305,7 @@ export async function handleReactionRemove(
           message.id,
         );
 
-        if (!existingTempRole) return;
+        if (!existingTempRole || existingTempRole.spent) return;
 
         await member.roles.remove(role).catch(() => {});
         await TempRole.deleteById(existingTempRole.id);

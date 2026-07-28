@@ -211,6 +211,24 @@ describe("messageReactionAdd handler", () => {
     );
   });
 
+  it("does not re-grant or extend when the existing TempRole is spent", async () => {
+    const spentTempRole = {
+      id: 1,
+      maxReactionCount: 3,
+      spent: true,
+      expirationTime: new Date(Date.now() - 60 * 60 * 1000),
+    };
+    mockTempRole.findByKey.mockResolvedValueOnce(spentTempRole);
+
+    // humanCount=4 > maxReactionCount=3, but role already expired/spent
+    const reaction = makeReaction({ count: 5, me: true });
+    await handleReactionAdd(reaction, makeUser(), deps());
+
+    expect(mockTempRole.extend).not.toHaveBeenCalled();
+    expect(mockTempRole.create).not.toHaveBeenCalled();
+    expect(reaction.message.reply).not.toHaveBeenCalled();
+  });
+
   it("does not extend when count is at or below stored HWM", async () => {
     const existingTempRole = {
       id: 1,
@@ -521,6 +539,16 @@ describe("messageReactionRemove handler", () => {
     await expect(
       handleReactionRemove(reaction, makeUser(), deps()),
     ).resolves.toBeUndefined();
+
+    expect(mockTempRole.deleteById).not.toHaveBeenCalled();
+  });
+
+  it("does not revoke or delete when the existing TempRole is already spent", async () => {
+    const spentTempRole = { id: 99, spent: true };
+    mockTempRole.findByKey.mockResolvedValueOnce(spentTempRole);
+
+    const reaction = makeCombinedRemoveReaction(1, 2); // below threshold
+    await handleReactionRemove(reaction, makeUser(), deps());
 
     expect(mockTempRole.deleteById).not.toHaveBeenCalled();
   });

@@ -60,7 +60,7 @@ describe("temp-roles worker", () => {
     ).not.toBeNull();
   });
 
-  it("removes role and deletes all matching rows when expired with no later row", async () => {
+  it("removes role and marks the row spent when expired with no later row", async () => {
     await db.create({
       ...base,
       expirationTime: new Date(Date.now() - 60 * 60 * 1000),
@@ -69,9 +69,21 @@ describe("temp-roles worker", () => {
     await run(mockClient, db);
 
     expect(mockMember.roles.remove).toHaveBeenCalledWith(mockRole);
-    expect(
-      await db.findByKey("guild-1", "member-1", "role-1", "msg-1"),
-    ).toBeNull();
+    const row = await db.findByKey("guild-1", "member-1", "role-1", "msg-1");
+    expect(row).not.toBeNull();
+    expect(row.spent).toBe(true);
+  });
+
+  it("does not re-process a row already marked spent", async () => {
+    const record = await db.create({
+      ...base,
+      expirationTime: new Date(Date.now() - 60 * 60 * 1000),
+    });
+    await db.markSpent(record.id);
+
+    await run(mockClient, db);
+
+    expect(mockMember.roles.remove).not.toHaveBeenCalled();
   });
 
   it("only deletes expired row when a later expiration exists, role stays", async () => {
