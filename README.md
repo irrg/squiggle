@@ -12,6 +12,7 @@ Tailored to one server's specific vibe — but the mechanics are general enough 
 - **Auto-forwarding** — optionally forwards the triggering message to a configured channel when a role is first granted
 - **Forward veto** — anyone can react 🚫 on a bot-forwarded message to delete it (e.g. if the original author would rather post it themselves)
 - **Extensions** — each genuinely new reactor adds 4 hours to the role's expiration
+- **Reaction debouncing** — grants/extensions on a message are evaluated once a burst of reactions goes quiet (a few seconds), not once per reaction, and multiple roles affected in that window are announced in a single reply instead of spamming one per role
 - **Auto-expiry** — all roles expire after 16 hours; a worker cleans them up automatically. Once a role has expired, that message is retired — later reactions can't trigger a new grant on it
 - `/squiggle` — admin commands: list active temp roles, manually expire a role, manually grant a role, view a per-role leaderboard, or trigger the worker on demand (Administrator permission required)
 

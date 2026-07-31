@@ -2,7 +2,24 @@ import { EmbedBuilder, MessageReferenceType } from "discord.js";
 import canPostInChannel from "../utils/canPostInChannel.js";
 import sendDebugMessage from "../utils/sendDebugMessage.js";
 import formatError from "../utils/formatError.js";
-import { TEMP_ROLE_DURATION_MS, TEMP_ROLE_EXTENSION_MS } from "../constants.js";
+import {
+  TEMP_ROLE_DURATION_MS,
+  TEMP_ROLE_EXTENSION_MS,
+  REACTION_DEBOUNCE_MS,
+} from "../constants.js";
+
+// Reactions mashed on the same message within this window collapse into a
+// single evaluation pass and a single reply, instead of one per reaction.
+const pendingEvaluations = new Map();
+
+function scheduleEvaluation(messageId, evaluate) {
+  clearTimeout(pendingEvaluations.get(messageId));
+  const timer = setTimeout(() => {
+    pendingEvaluations.delete(messageId);
+    evaluate();
+  }, REACTION_DEBOUNCE_MS);
+  pendingEvaluations.set(messageId, timer);
+}
 
 // Author is null for system/webhook messages; bot-authored messages map back
 // to the member the bot posted for via the TempRole record.
@@ -70,6 +87,8 @@ async function forwardIfConfigured({ client, guild, message, channelName }) {
 
 // Extends an existing temp role when `count` sets a new high-water mark, or
 // grants a fresh one (role + record + announcement embed + optional forward).
+// Returns "extended" | "granted" | null so callers can batch notifications
+// instead of replying per role.
 async function grantOrExtendTempRole({
   client,
   TempRole,
@@ -80,7 +99,6 @@ async function grantOrExtendTempRole({
   role,
   count,
   shouldGrant,
-  extendMessage,
   embedTitle,
   color,
   forwardChannel,
@@ -94,18 +112,18 @@ async function grantOrExtendTempRole({
 
   if (existingTempRole) {
     // Already expired and role removed — don't resurrect it as a "new" besting.
-    if (existingTempRole.spent) return;
+    if (existingTempRole.spent) return null;
     if (count > existingTempRole.maxReactionCount) {
       const expirationTime = new Date(
         existingTempRole.expirationTime.getTime() + TEMP_ROLE_EXTENSION_MS,
       );
       await TempRole.extend(existingTempRole.id, expirationTime, count);
-      await message.reply(extendMessage);
+      return "extended";
     }
-    return;
+    return null;
   }
 
-  if (!shouldGrant) return;
+  if (!shouldGrant) return null;
 
   const expirationTime = new Date(Date.now() + TEMP_ROLE_DURATION_MS);
   await member.roles.add(role);
@@ -121,7 +139,7 @@ async function grantOrExtendTempRole({
       maxReactionCount: count,
     });
   } catch (dbError) {
-    if (dbError.name === "UniqueConstraintError") return;
+    if (dbError.name === "UniqueConstraintError") return null;
     await member.roles.remove(role).catch(() => {});
     throw dbError;
   }
@@ -140,6 +158,125 @@ async function grantOrExtendTempRole({
     message,
     channelName: forwardChannel,
   });
+
+  return "granted";
+}
+
+// Runs once per debounce window, regardless of how many reactions landed
+// during it. Re-reads reaction counts fresh from the message's live cache,
+// so it reflects everything that happened in the window.
+async function evaluateReactionRoles({
+  client,
+  TempRole,
+  config,
+  guild,
+  message,
+  messageAuthorId,
+}) {
+  let member;
+  try {
+    member = await guild.members.fetch(messageAuthorId);
+  } catch (error) {
+    await sendDebugMessage(
+      client,
+      `Error fetching member for reaction roles: ${formatError(error)}`,
+    );
+    return;
+  }
+  const memberName = member.nickname || member.user.username;
+  const extendedRoleNames = [];
+
+  // Sequential, not Promise.all — two config entries can target the same
+  // Discord role, and interleaving their read-then-write TempRole calls
+  // would race the same way the original per-event handling did.
+  for (const reactionRole of config.workers.reactionRoles) {
+    try {
+      const role = guild.roles.cache.find(
+        (findableRole) => findableRole.name === reactionRole.roleName,
+      );
+      if (!role) {
+        await sendDebugMessage(
+          client,
+          `Role ${reactionRole.roleName} not found`,
+        );
+        continue;
+      }
+
+      const [humanCount] = humanCounts(message, [reactionRole.emojiName]);
+
+      const action = await grantOrExtendTempRole({
+        client,
+        TempRole,
+        guild,
+        message,
+        member,
+        memberName,
+        role,
+        count: humanCount,
+        shouldGrant: humanCount >= reactionRole.threshold,
+        embedTitle: `${memberName} was determined to be ${reactionRole.roleName.replace(/People who are /g, "")}`,
+        color: reactionRole.color,
+        forwardChannel: reactionRole.forwardChannel,
+      });
+      if (action === "extended") extendedRoleNames.push(role.name);
+    } catch (error) {
+      await sendDebugMessage(
+        client,
+        `Error handling reaction: ${formatError(error)}`,
+      );
+      await message.channel.send(
+        "Something went wrong with storing a tempRole.",
+      );
+    }
+  }
+
+  const combinedRoles = config.workers.combinedReactionRoles ?? [];
+  for (const combinedRole of combinedRoles) {
+    try {
+      const counts = humanCounts(message, combinedRole.emojiNames);
+
+      if (!counts.every((count) => count >= combinedRole.threshold)) continue;
+
+      const role = guild.roles.cache.find(
+        (r) => r.name === combinedRole.roleName,
+      );
+      if (!role) {
+        await sendDebugMessage(
+          client,
+          `Combined role ${combinedRole.roleName} not found`,
+        );
+        continue;
+      }
+
+      const action = await grantOrExtendTempRole({
+        client,
+        TempRole,
+        guild,
+        message,
+        member,
+        memberName,
+        role,
+        count: Math.min(...counts),
+        shouldGrant: true,
+        embedTitle: `${memberName} ${combinedRole.roleName.replace(/People who are |people who /gi, "")}`,
+        color: combinedRole.color,
+        forwardChannel: combinedRole.forwardChannel,
+      });
+      if (action === "extended") extendedRoleNames.push(role.name);
+    } catch (error) {
+      await sendDebugMessage(
+        client,
+        `Error handling combined reaction: ${formatError(error)}`,
+      );
+      await message.channel.send("Something went wrong with a combined role.");
+    }
+  }
+
+  if (extendedRoleNames.length > 0) {
+    const names = [...new Set(extendedRoleNames)];
+    const roleList = names.map((name) => `**${name}**`).join(", ");
+    await message.reply(`Extended by four hours: ${roleList}`);
+  }
 }
 
 export async function handleReactionAdd(
@@ -165,103 +302,14 @@ export async function handleReactionAdd(
 
   if (user.id === messageAuthorId) return;
 
-  await Promise.all(
-    config.workers.reactionRoles.map(async (reactionRole) => {
-      if (reaction.emoji.name !== reactionRole.emojiName) return;
-
-      try {
-        const role = guild.roles.cache.find(
-          (findableRole) => findableRole.name === reactionRole.roleName,
-        );
-        if (!role) {
-          await sendDebugMessage(
-            client,
-            `Role ${reactionRole.roleName} not found`,
-          );
-          return;
-        }
-
-        const humanCount = reaction.count - (reaction.me ? 1 : 0);
-
-        const member = await guild.members.fetch(messageAuthorId);
-        const memberName = member.nickname || member.user.username;
-
-        const extenderMember = await guild.members.fetch(user.id);
-        const extenderName = extenderMember.nickname || user.username;
-
-        await grantOrExtendTempRole({
-          client,
-          TempRole,
-          guild,
-          message,
-          member,
-          memberName,
-          role,
-          count: humanCount,
-          shouldGrant: humanCount >= reactionRole.threshold,
-          extendMessage: `${extenderName} extended your role by four hours`,
-          embedTitle: `${memberName} was determined to be ${reactionRole.roleName.replace(/People who are /g, "")}`,
-          color: reactionRole.color,
-          forwardChannel: reactionRole.forwardChannel,
-        });
-      } catch (error) {
-        await sendDebugMessage(
-          client,
-          `Error handling reaction: ${formatError(error)}`,
-        );
-        await message.channel.send(
-          "Something went wrong with storing a tempRole.",
-        );
-      }
-    }),
-  );
-
-  const combinedRoles = config.workers.combinedReactionRoles ?? [];
-  await Promise.all(
-    combinedRoles.map(async (combinedRole) => {
-      try {
-        const counts = humanCounts(message, combinedRole.emojiNames);
-
-        if (!counts.every((count) => count >= combinedRole.threshold)) return;
-
-        const role = guild.roles.cache.find(
-          (r) => r.name === combinedRole.roleName,
-        );
-        if (!role) {
-          await sendDebugMessage(
-            client,
-            `Combined role ${combinedRole.roleName} not found`,
-          );
-          return;
-        }
-
-        const member = await guild.members.fetch(messageAuthorId);
-        const memberName = member.nickname || member.user.username;
-
-        await grantOrExtendTempRole({
-          client,
-          TempRole,
-          guild,
-          message,
-          member,
-          memberName,
-          role,
-          count: Math.min(...counts),
-          shouldGrant: true,
-          extendMessage: `${memberName}'s role was extended by four hours`,
-          embedTitle: `${memberName} ${combinedRole.roleName.replace(/People who are |people who /gi, "")}`,
-          color: combinedRole.color,
-          forwardChannel: combinedRole.forwardChannel,
-        });
-      } catch (error) {
-        await sendDebugMessage(
-          client,
-          `Error handling combined reaction: ${formatError(error)}`,
-        );
-        await message.channel.send(
-          "Something went wrong with a combined role.",
-        );
-      }
+  scheduleEvaluation(message.id, () =>
+    evaluateReactionRoles({
+      client,
+      TempRole,
+      config,
+      guild,
+      message,
+      messageAuthorId,
     }),
   );
 }
