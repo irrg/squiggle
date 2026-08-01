@@ -39,12 +39,19 @@ const createDB = async (filePath) => {
   };
 
   const findAllByGuild = async (guildId) => {
-    const docs = await ds.findAsync({ guildId }).sort({ expirationTime: 1 });
+    const docs = await ds
+      .findAsync({ guildId, spent: { $ne: true } })
+      .sort({ expirationTime: 1 });
     return docs.map(toRow);
   };
 
   const findAllByMemberRole = async (guildId, memberId, roleId) => {
-    const docs = await ds.findAsync({ guildId, memberId, roleId });
+    const docs = await ds.findAsync({
+      guildId,
+      memberId,
+      roleId,
+      spent: { $ne: true },
+    });
     return docs.map(toRow);
   };
 
@@ -147,15 +154,11 @@ const createDB = async (filePath) => {
 
   const markSpent = async (id) => {
     const now = Date.now();
-    await ds.updateAsync(
+    const { numAffected } = await ds.updateAsync(
       { _id: id },
       { $set: { spent: true, updatedAt: now } },
     );
-  };
-
-  const deleteById = async (id) => {
-    const numRemoved = await ds.removeAsync({ _id: id }, {});
-    return numRemoved;
+    return numAffected;
   };
 
   const close = async () => {
@@ -174,7 +177,6 @@ const createDB = async (filePath) => {
     create,
     extend,
     markSpent,
-    deleteById,
     close,
   };
 };

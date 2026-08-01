@@ -154,7 +154,7 @@ describe("squiggle admin command", () => {
     );
   });
 
-  it("expire removes role and deletes matching rows", async () => {
+  it("expire removes role and marks matching rows spent", async () => {
     const future = new Date(Date.now() + 60 * 60 * 1000);
     await db.create({ ...base, expirationTime: future });
 
@@ -166,6 +166,8 @@ describe("squiggle admin command", () => {
     expect(
       await db.findAllByMemberRole("guild-1", "member-1", "role-1"),
     ).toHaveLength(0);
+    const row = await db.findByKey("guild-1", "member-1", "role-1", "msg-1");
+    expect(row.spent).toBe(true);
   });
 
   it("grant adds role and creates a record", async () => {

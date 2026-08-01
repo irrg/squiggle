@@ -72,7 +72,7 @@ const mockTempRole = {
   findByKey: vi.fn().mockResolvedValue(null),
   create: vi.fn().mockResolvedValue(undefined),
   extend: vi.fn().mockResolvedValue(undefined),
-  deleteById: vi.fn().mockResolvedValue(undefined),
+  markSpent: vi.fn().mockResolvedValue(1),
 };
 
 const deps = () => ({
@@ -155,7 +155,7 @@ beforeEach(() => {
   mockTempRole.findByKey.mockReset().mockResolvedValue(null);
   mockTempRole.create.mockReset().mockResolvedValue(undefined);
   mockTempRole.extend.mockReset().mockResolvedValue(undefined);
-  mockTempRole.deleteById.mockReset().mockResolvedValue(undefined);
+  mockTempRole.markSpent.mockReset().mockResolvedValue(1);
 });
 
 afterEach(() => {
@@ -627,7 +627,7 @@ describe("messageReactionRemove handler", () => {
     const member =
       await reaction.message.guild.members.fetch.mock.results[0].value;
     expect(member.roles.remove).toHaveBeenCalled();
-    expect(mockTempRole.deleteById).toHaveBeenCalledWith(existingTempRole.id);
+    expect(mockTempRole.markSpent).toHaveBeenCalledWith(existingTempRole.id);
   });
 
   it("does not revoke combined role when all counts still meet threshold", async () => {
@@ -646,17 +646,17 @@ describe("messageReactionRemove handler", () => {
       handleReactionRemove(reaction, makeUser(), deps()),
     ).resolves.toBeUndefined();
 
-    expect(mockTempRole.deleteById).not.toHaveBeenCalled();
+    expect(mockTempRole.markSpent).not.toHaveBeenCalled();
   });
 
-  it("does not revoke or delete when the existing TempRole is already spent", async () => {
+  it("does not revoke or mark spent when the existing TempRole is already spent", async () => {
     const spentTempRole = { id: 99, spent: true };
     mockTempRole.findByKey.mockResolvedValueOnce(spentTempRole);
 
     const reaction = makeCombinedRemoveReaction(1, 2); // below threshold
     await handleReactionRemove(reaction, makeUser(), deps());
 
-    expect(mockTempRole.deleteById).not.toHaveBeenCalled();
+    expect(mockTempRole.markSpent).not.toHaveBeenCalled();
   });
 
   it("does nothing when no TempRole exists for the combined role", async () => {

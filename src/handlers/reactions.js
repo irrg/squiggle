@@ -356,7 +356,9 @@ export async function handleReactionRemove(
         if (!existingTempRole || existingTempRole.spent) return;
 
         await member.roles.remove(role).catch(() => {});
-        await TempRole.deleteById(existingTempRole.id);
+        // Mark spent (not delete) — reactions climbing back up shouldn't
+        // let this message re-qualify as a "fresh" besting/worsting.
+        await TempRole.markSpent(existingTempRole.id);
       } catch (error) {
         await sendDebugMessage(
           client,

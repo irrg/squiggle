@@ -78,20 +78,11 @@ describe("TempRole model", () => {
     expect(updated.maxReactionCount).toBe(5);
   });
 
-  it("deleteById removes the row and returns changes count", async () => {
+  it("markSpent flags the row without deleting it, returning the affected count", async () => {
     const record = await db.create({ ...base, expirationTime: new Date() });
-    const deleted = await db.deleteById(record.id);
+    const affected = await db.markSpent(record.id);
 
-    expect(deleted).toBe(1);
-    expect(
-      await db.findByKey("guild-1", "member-1", "role-1", "msg-1"),
-    ).toBeNull();
-  });
-
-  it("markSpent flags the row without deleting it", async () => {
-    const record = await db.create({ ...base, expirationTime: new Date() });
-    await db.markSpent(record.id);
-
+    expect(affected).toBe(1);
     const found = await db.findByKey("guild-1", "member-1", "role-1", "msg-1");
     expect(found).not.toBeNull();
     expect(found.spent).toBe(true);
@@ -250,6 +241,36 @@ describe("TempRole model", () => {
     expect(rows).toHaveLength(1);
     expect(rows[0].guildId).toBe("guild-1");
     expect(rows[0].expirationTime).toBeInstanceOf(Date);
+  });
+
+  it("findAllByGuild excludes rows marked spent", async () => {
+    const future = new Date(Date.now() + 60 * 60 * 1000);
+    const record = await db.create({ ...base, expirationTime: future });
+    await db.create({
+      ...base,
+      messageId: "msg-2",
+      expirationTime: future,
+    });
+    await db.markSpent(record.id);
+
+    const rows = await db.findAllByGuild("guild-1");
+    expect(rows).toHaveLength(1);
+    expect(rows[0].messageId).toBe("msg-2");
+  });
+
+  it("findAllByMemberRole excludes rows marked spent", async () => {
+    const future = new Date(Date.now() + 60 * 60 * 1000);
+    const record = await db.create({ ...base, expirationTime: future });
+    await db.create({
+      ...base,
+      messageId: "msg-2",
+      expirationTime: future,
+    });
+    await db.markSpent(record.id);
+
+    const rows = await db.findAllByMemberRole("guild-1", "member-1", "role-1");
+    expect(rows).toHaveLength(1);
+    expect(rows[0].messageId).toBe("msg-2");
   });
 
   it("throws UniqueConstraintError on duplicate key", async () => {

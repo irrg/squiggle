@@ -97,10 +97,10 @@ export async function init(interaction, client, db) {
     }
     await targetMember.roles.remove(targetRole);
     for (const row of rows) {
-      await db.deleteById(row.id);
+      await db.markSpent(row.id);
     }
     return interaction.reply({
-      content: `Removed **${targetRole.name}** from **${targetMember.displayName}** (${rows.length} record${rows.length > 1 ? "s" : ""} deleted).`,
+      content: `Removed **${targetRole.name}** from **${targetMember.displayName}** (${rows.length} record${rows.length > 1 ? "s" : ""} retired).`,
       flags: MessageFlags.Ephemeral,
     });
   }

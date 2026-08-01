@@ -8,23 +8,23 @@ const run = async (client, db) => {
       tempRoles.map(async (tempRole) => {
         const guild = client.guilds.cache.get(tempRole.guildId);
         if (!guild) {
-          await db.deleteById(tempRole.id);
+          await db.markSpent(tempRole.id);
           return;
         }
         const role = guild.roles.cache.get(tempRole.roleId);
         if (!role) {
-          await db.deleteById(tempRole.id);
+          await db.markSpent(tempRole.id);
           return;
         }
         let member;
         try {
           member = await guild.members.fetch(tempRole.memberId);
         } catch {
-          // Member left the guild — drop the row or it retries every interval
-          await db.deleteById(tempRole.id);
+          // Member left the guild — mark spent or this retries every interval
+          await db.markSpent(tempRole.id);
           await sendDebugMessage(
             client,
-            `Member ${tempRole.memberName} (${tempRole.memberId}) not in guild; removed expired tempRole row ${tempRole.id}`,
+            `Member ${tempRole.memberName} (${tempRole.memberId}) not in guild; marked expired tempRole row ${tempRole.id} spent`,
           );
           return;
         }
@@ -38,13 +38,17 @@ const run = async (client, db) => {
         );
 
         if (hasLater) {
-          const deleted = await db.deleteById(tempRole.id);
-          if (deleted > 0) {
-            const msg = `removed tempRole table row ${tempRole.id}`;
+          // Superseded by a later grant of the same role — role stays on
+          // the member until that one expires. Mark spent (not delete) so
+          // a later reaction on this same message can't look like a fresh
+          // besting/worsting.
+          const marked = await db.markSpent(tempRole.id);
+          if (marked > 0) {
+            const msg = `marked superseded tempRole row ${tempRole.id} spent`;
             console.log(msg);
             await sendDebugMessage(client, msg);
           } else {
-            const msg = "deletion went wrong";
+            const msg = "marking spent went wrong";
             console.log(msg);
             await sendDebugMessage(client, msg);
           }

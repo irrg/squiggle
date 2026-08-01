@@ -86,7 +86,7 @@ describe("temp-roles worker", () => {
     expect(mockMember.roles.remove).not.toHaveBeenCalled();
   });
 
-  it("only deletes expired row when a later expiration exists, role stays", async () => {
+  it("marks the superseded row spent when a later expiration exists, role stays", async () => {
     await db.create({
       ...base,
       expirationTime: new Date(Date.now() - 60 * 60 * 1000),
@@ -100,15 +100,18 @@ describe("temp-roles worker", () => {
     await run(mockClient, db);
 
     expect(mockMember.roles.remove).not.toHaveBeenCalled();
-    expect(
-      await db.findByKey("guild-1", "member-1", "role-1", "msg-1"),
-    ).toBeNull();
-    expect(
-      await db.findByKey("guild-1", "member-1", "role-1", "msg-2"),
-    ).not.toBeNull();
+    const superseded = await db.findByKey(
+      "guild-1",
+      "member-1",
+      "role-1",
+      "msg-1",
+    );
+    expect(superseded.spent).toBe(true);
+    const later = await db.findByKey("guild-1", "member-1", "role-1", "msg-2");
+    expect(later.spent).toBe(false);
   });
 
-  it("destroys orphaned row and skips role removal when guild not in cache", async () => {
+  it("marks the row spent and skips role removal when guild not in cache", async () => {
     await db.create({
       ...base,
       expirationTime: new Date(Date.now() - 60 * 60 * 1000),
@@ -118,12 +121,11 @@ describe("temp-roles worker", () => {
     await run(mockClient, db);
 
     expect(mockMember.roles.remove).not.toHaveBeenCalled();
-    expect(
-      await db.findByKey("guild-1", "member-1", "role-1", "msg-1"),
-    ).toBeNull();
+    const row = await db.findByKey("guild-1", "member-1", "role-1", "msg-1");
+    expect(row.spent).toBe(true);
   });
 
-  it("destroys orphaned row and skips role removal when role not in cache", async () => {
+  it("marks the row spent and skips role removal when role not in cache", async () => {
     await db.create({
       ...base,
       expirationTime: new Date(Date.now() - 60 * 60 * 1000),
@@ -133,12 +135,11 @@ describe("temp-roles worker", () => {
     await run(mockClient, db);
 
     expect(mockMember.roles.remove).not.toHaveBeenCalled();
-    expect(
-      await db.findByKey("guild-1", "member-1", "role-1", "msg-1"),
-    ).toBeNull();
+    const row = await db.findByKey("guild-1", "member-1", "role-1", "msg-1");
+    expect(row.spent).toBe(true);
   });
 
-  it("deletes row when member has left the guild instead of retrying forever", async () => {
+  it("marks the row spent when member has left the guild instead of retrying forever", async () => {
     await db.create({
       ...base,
       expirationTime: new Date(Date.now() - 60 * 60 * 1000),
@@ -147,9 +148,8 @@ describe("temp-roles worker", () => {
 
     await run(mockClient, db);
 
-    expect(
-      await db.findByKey("guild-1", "member-1", "role-1", "msg-1"),
-    ).toBeNull();
+    const row = await db.findByKey("guild-1", "member-1", "role-1", "msg-1");
+    expect(row.spent).toBe(true);
   });
 
   it("catches errors and does not throw", async () => {
