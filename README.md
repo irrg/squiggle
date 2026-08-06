@@ -17,7 +17,7 @@ Tailored to one server's specific vibe — but the mechanics are general enough 
 - **Retired, not deleted** — however a role's record stops being active (natural expiry, superseded by a later grant of the same role, revoked because reactions dropped, or manually expired via `/squiggle expire`), the record is marked spent rather than removed. That message is permanently retired for that role — later reactions on it can't trigger a "new" besting/worsting — and the history still counts toward `/squiggle leaderboard`
 - `/squiggle leaderboard` — top 3 members per configured reaction role, open to everyone
 - `/squiggle` — admin commands: list active temp roles, manually expire a role, manually grant a role, or trigger the worker on demand (Administrator permission required)
-- **Weekly leaderboard post** — if `workers.leaderboardChannel` is configured, the same leaderboard is posted publicly every Monday at 9am Central
+- **Weekly leaderboard post** — the same leaderboard is posted publicly every Monday at 9am Central, in each guild's system channel by default (or `workers.leaderboardChannel` if set)
 
 ## Requirements
 
@@ -121,7 +121,7 @@ npm start
 
 **`workers.combinedReactionRoles`** — like reactionRoles, but all emoji in `emojiNames` must independently hit `threshold` on the same message.
 
-**`workers.leaderboardChannel`** — optional channel name. If set, the leaderboard is posted there automatically every Monday at 9am Central, in every guild that has a channel with this name. Omit to disable the weekly post (the `/squiggle leaderboard` command still works either way).
+**`workers.leaderboardChannel`** — optional channel name override for the weekly leaderboard post (every Monday at 9am Central). If omitted, each guild's system channel is used (the one Discord designates for join/boost messages — stays correct even if that channel gets renamed), falling back to a channel literally named "general" if no system channel is set. If neither resolves, that guild is skipped that week. The `/squiggle leaderboard` command works regardless of this setting.
 
 ## Development
 

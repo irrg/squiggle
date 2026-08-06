@@ -21,7 +21,6 @@ vi.mock("discord.js", () => ({
 
 let mockConfig = {
   workers: {
-    leaderboardChannel: "leaderboard-channel",
     reactionRoles: [{ roleName: "Good Person" }],
     combinedReactionRoles: [],
   },
@@ -40,20 +39,27 @@ const TUESDAY_9AM_CENTRAL = new Date("2026-08-04T14:02:00.000Z");
 
 const mockDb = { topByRole: vi.fn().mockResolvedValue([]) };
 
-const makeChannel = (name = "leaderboard-channel") => ({
+const makeChannel = (name = "general") => ({
   name,
   send: vi.fn().mockResolvedValue(undefined),
 });
 
-const makeGuild = ({ id = "guild-1", channel = makeChannel() } = {}) => ({
+const makeGuild = ({
+  id = "guild-1",
+  systemChannel = null,
+  namedChannels = [],
+} = {}) => ({
   id,
+  systemChannel,
   roles: {
     cache: {
       find: vi.fn().mockReturnValue({ id: "role-id", name: "Good Person" }),
     },
   },
   channels: {
-    cache: { find: vi.fn().mockReturnValue(channel) },
+    cache: {
+      find: vi.fn((fn) => namedChannels.find(fn)),
+    },
   },
 });
 
@@ -68,7 +74,6 @@ beforeEach(async () => {
   vi.useFakeTimers();
   mockConfig = {
     workers: {
-      leaderboardChannel: "leaderboard-channel",
       reactionRoles: [{ roleName: "Good Person" }],
       combinedReactionRoles: [],
     },
@@ -82,76 +87,91 @@ afterEach(() => {
 });
 
 describe("weekly-leaderboard worker", () => {
-  it("does nothing when leaderboardChannel is not configured", async () => {
-    mockConfig.workers.leaderboardChannel = undefined;
-    vi.setSystemTime(MONDAY_9AM_CENTRAL);
-
-    const channel = makeChannel();
-    const client = makeClient([makeGuild({ channel })]);
-    await run(client, mockDb);
-
-    expect(channel.send).not.toHaveBeenCalled();
-  });
-
   it("does nothing outside Monday 9am Central", async () => {
     vi.setSystemTime(TUESDAY_9AM_CENTRAL);
 
-    const channel = makeChannel();
-    const client = makeClient([makeGuild({ channel })]);
+    const systemChannel = makeChannel();
+    const client = makeClient([makeGuild({ systemChannel })]);
     await run(client, mockDb);
 
-    expect(channel.send).not.toHaveBeenCalled();
+    expect(systemChannel.send).not.toHaveBeenCalled();
   });
 
   it("does nothing outside the 9:00-9:05 window on Monday", async () => {
     vi.setSystemTime(MONDAY_10AM_CENTRAL);
 
-    const channel = makeChannel();
-    const client = makeClient([makeGuild({ channel })]);
+    const systemChannel = makeChannel();
+    const client = makeClient([makeGuild({ systemChannel })]);
     await run(client, mockDb);
 
-    expect(channel.send).not.toHaveBeenCalled();
+    expect(systemChannel.send).not.toHaveBeenCalled();
   });
 
-  it("posts the leaderboard to the configured channel during the Monday 9am window", async () => {
+  it("posts to the guild's system channel by default", async () => {
     vi.setSystemTime(MONDAY_9AM_CENTRAL);
 
-    const channel = makeChannel();
-    const client = makeClient([makeGuild({ channel })]);
+    const systemChannel = makeChannel("totally-renamed-channel");
+    const client = makeClient([makeGuild({ systemChannel })]);
     await run(client, mockDb);
 
-    expect(channel.send).toHaveBeenCalledTimes(1);
-    expect(channel.send).toHaveBeenCalledWith(
+    expect(systemChannel.send).toHaveBeenCalledTimes(1);
+    expect(systemChannel.send).toHaveBeenCalledWith(
       expect.objectContaining({ embeds: expect.any(Array) }),
     );
   });
 
-  it("skips guilds that don't have the configured channel", async () => {
+  it("falls back to a channel literally named 'general' when there's no system channel", async () => {
     vi.setSystemTime(MONDAY_9AM_CENTRAL);
 
-    const guildWithout = makeGuild({ id: "guild-2" });
-    guildWithout.channels.cache.find = vi.fn().mockReturnValue(undefined);
+    const general = makeChannel("general");
+    const client = makeClient([
+      makeGuild({ systemChannel: null, namedChannels: [general] }),
+    ]);
+    await run(client, mockDb);
 
-    const client = makeClient([guildWithout]);
+    expect(general.send).toHaveBeenCalledTimes(1);
+  });
+
+  it("skips a guild with no system channel and no 'general' channel", async () => {
+    vi.setSystemTime(MONDAY_9AM_CENTRAL);
+
+    const client = makeClient([
+      makeGuild({ systemChannel: null, namedChannels: [] }),
+    ]);
     await expect(run(client, mockDb)).resolves.toBeUndefined();
+  });
+
+  it("uses workers.leaderboardChannel as an override when configured", async () => {
+    mockConfig.workers.leaderboardChannel = "announcements";
+    vi.setSystemTime(MONDAY_9AM_CENTRAL);
+
+    const systemChannel = makeChannel("general");
+    const announcements = makeChannel("announcements");
+    const client = makeClient([
+      makeGuild({ systemChannel, namedChannels: [announcements] }),
+    ]);
+    await run(client, mockDb);
+
+    expect(announcements.send).toHaveBeenCalledTimes(1);
+    expect(systemChannel.send).not.toHaveBeenCalled();
   });
 
   it("does not double-post within the same Monday window", async () => {
     vi.setSystemTime(MONDAY_9AM_CENTRAL);
-    const channel = makeChannel();
-    const client = makeClient([makeGuild({ channel })]);
+    const systemChannel = makeChannel();
+    const client = makeClient([makeGuild({ systemChannel })]);
 
     await run(client, mockDb);
     vi.setSystemTime(new Date(MONDAY_9AM_CENTRAL.getTime() + 60 * 1000));
     await run(client, mockDb);
 
-    expect(channel.send).toHaveBeenCalledTimes(1);
+    expect(systemChannel.send).toHaveBeenCalledTimes(1);
   });
 
   it("posts again the following Monday", async () => {
     vi.setSystemTime(MONDAY_9AM_CENTRAL);
-    const channel = makeChannel();
-    const client = makeClient([makeGuild({ channel })]);
+    const systemChannel = makeChannel();
+    const client = makeClient([makeGuild({ systemChannel })]);
 
     await run(client, mockDb);
 
@@ -161,6 +181,6 @@ describe("weekly-leaderboard worker", () => {
     vi.setSystemTime(nextMonday);
     await run(client, mockDb);
 
-    expect(channel.send).toHaveBeenCalledTimes(2);
+    expect(systemChannel.send).toHaveBeenCalledTimes(2);
   });
 });

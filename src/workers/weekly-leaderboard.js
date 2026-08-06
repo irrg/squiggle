@@ -11,10 +11,23 @@ import config from "../../config/config.json" with { type: "json" };
 // can't be the only thing standing between "posted" and "never posted".
 let lastPostedDateKey = null;
 
+// systemChannelId is set once at server creation and stays pinned to that
+// channel's ID even if it's renamed — the closest thing Discord has to a
+// stable "the general channel" reference. Literal name match as a fallback
+// for servers where the system channel was cleared.
+function resolveLeaderboardChannel(guild, channelName) {
+  if (channelName) {
+    return guild.channels.cache.find((ch) => ch.name === channelName);
+  }
+  return (
+    guild.systemChannel ??
+    guild.channels.cache.find((ch) => ch.name === "general")
+  );
+}
+
 const run = async (client, db) => {
   try {
     const channelName = config.workers.leaderboardChannel;
-    if (!channelName) return;
 
     const now = new Date();
     const weekday = formatInTimeZone(now, CENTRAL_TIMEZONE, "iiii");
@@ -27,9 +40,7 @@ const run = async (client, db) => {
     lastPostedDateKey = dateKey;
 
     for (const guild of client.guilds.cache.values()) {
-      const channel = guild.channels.cache.find(
-        (ch) => ch.name === channelName,
-      );
+      const channel = resolveLeaderboardChannel(guild, channelName);
       if (!channel) continue;
 
       const fields = await buildLeaderboardFields(config, guild, db);
