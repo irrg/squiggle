@@ -1,6 +1,7 @@
 import { PermissionFlagsBits, EmbedBuilder, MessageFlags } from "discord.js";
 import { run as runWorker } from "../workers/temp-roles.js";
 import { TEMP_ROLE_DURATION_MS } from "../constants.js";
+import { buildLeaderboardFields } from "../utils/leaderboard.js";
 import config from "../../config/config.json" with { type: "json" };
 
 export const commandName = "squiggle";
@@ -43,14 +44,18 @@ export const options = [
 ];
 
 export async function init(interaction, client, db) {
-  if (!interaction.memberPermissions?.has(PermissionFlagsBits.Administrator)) {
+  const sub = interaction.options.getSubcommand();
+
+  // Anyone can check the leaderboard; everything else is admin-only.
+  if (
+    sub !== "leaderboard" &&
+    !interaction.memberPermissions?.has(PermissionFlagsBits.Administrator)
+  ) {
     return interaction.reply({
       content: "Admin only.",
       flags: MessageFlags.Ephemeral,
     });
   }
-
-  const sub = interaction.options.getSubcommand();
 
   if (sub === "list") {
     const rows = await db.findAllByGuild(interaction.guildId);
@@ -150,34 +155,7 @@ export async function init(interaction, client, db) {
   }
 
   if (sub === "leaderboard") {
-    const configuredRoles = [
-      ...(config.workers.reactionRoles ?? []),
-      ...(config.workers.combinedReactionRoles ?? []),
-    ];
-    const roleNames = [...new Set(configuredRoles.map((r) => r.roleName))];
-
-    const fields = [];
-    for (const roleName of roleNames) {
-      const role = interaction.guild.roles.cache.find(
-        (r) => r.name === roleName,
-      );
-      if (!role) {
-        fields.push({
-          name: roleName,
-          value:
-            "⚠️ role not found in this server — check config for typos/whitespace",
-        });
-        continue;
-      }
-
-      const top = await db.topByRole(interaction.guildId, role.id, 3);
-      const value = top.length
-        ? top
-            .map((t, i) => `${i + 1}. **${t.memberName}** — ${t.count}`)
-            .join("\n")
-        : "No data yet";
-      fields.push({ name: roleName, value });
-    }
+    const fields = await buildLeaderboardFields(config, interaction.guild, db);
 
     if (fields.length === 0) {
       return interaction.reply({

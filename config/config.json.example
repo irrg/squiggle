@@ -16,6 +16,7 @@
     ]
   },
   "workers": {
+    "leaderboardChannel": "squiggle-leaderboard",
     "reactionRoles": [
       {
         "emojiName": "🤷",

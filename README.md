@@ -15,7 +15,9 @@ Tailored to one server's specific vibe — but the mechanics are general enough 
 - **Reaction debouncing** — grants/extensions on a message are evaluated once a burst of reactions goes quiet (a few seconds), not once per reaction, and multiple roles affected in that window are announced in a single reply instead of spamming one per role
 - **Auto-expiry** — all roles expire after 16 hours; a worker cleans them up automatically
 - **Retired, not deleted** — however a role's record stops being active (natural expiry, superseded by a later grant of the same role, revoked because reactions dropped, or manually expired via `/squiggle expire`), the record is marked spent rather than removed. That message is permanently retired for that role — later reactions on it can't trigger a "new" besting/worsting — and the history still counts toward `/squiggle leaderboard`
-- `/squiggle` — admin commands: list active temp roles, manually expire a role, manually grant a role, view a per-role leaderboard, or trigger the worker on demand (Administrator permission required)
+- `/squiggle leaderboard` — top 3 members per configured reaction role, open to everyone
+- `/squiggle` — admin commands: list active temp roles, manually expire a role, manually grant a role, or trigger the worker on demand (Administrator permission required)
+- **Weekly leaderboard post** — if `workers.leaderboardChannel` is configured, the same leaderboard is posted publicly every Monday at 9am Central
 
 ## Requirements
 
@@ -84,6 +86,7 @@ npm start
     ]
   },
   "workers": {
+    "leaderboardChannel": "squiggle-leaderboard",
     "reactionRoles": [
       {
         "emojiName": "👍",
@@ -117,6 +120,8 @@ npm start
 **`workers.reactionRoles`** — emoji reaction thresholds. `emojiName` can be a Unicode emoji or a custom server emoji name. `threshold` is the number of human reactions required. `forwardChannel` is optional.
 
 **`workers.combinedReactionRoles`** — like reactionRoles, but all emoji in `emojiNames` must independently hit `threshold` on the same message.
+
+**`workers.leaderboardChannel`** — optional channel name. If set, the leaderboard is posted there automatically every Monday at 9am Central, in every guild that has a channel with this name. Omit to disable the weekly post (the `/squiggle leaderboard` command still works either way).
 
 ## Development
 

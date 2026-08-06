@@ -83,6 +83,7 @@ const makeInteraction = ({
   id: "interaction-1",
   guildId: "guild-1",
   guild: {
+    id: "guild-1",
     roles: {
       cache: { find: vi.fn((fn) => guildRoles.find(fn)) },
     },
@@ -108,6 +109,19 @@ describe("squiggle admin command", () => {
 
     expect(interaction.reply).toHaveBeenCalledWith(
       expect.objectContaining({ content: "Admin only.", flags: 64 }),
+    );
+  });
+
+  it("allows non-admins to run leaderboard", async () => {
+    const interaction = makeInteraction({ sub: "leaderboard", admin: false });
+
+    await init(interaction, mockClient, db);
+
+    expect(interaction.reply).not.toHaveBeenCalledWith(
+      expect.objectContaining({ content: "Admin only." }),
+    );
+    expect(interaction.reply).toHaveBeenCalledWith(
+      expect.objectContaining({ embeds: expect.any(Array) }),
     );
   });
 

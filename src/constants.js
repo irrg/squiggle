@@ -10,3 +10,5 @@ export const TEMP_ROLE_EXTENSION_MS = 4 * HOUR_MS;
 // and extending roles, so a burst of reactions collapses into one pass
 // and one notification instead of one per reaction
 export const REACTION_DEBOUNCE_MS = 7 * 1000;
+
+export const CENTRAL_TIMEZONE = "America/Chicago";
