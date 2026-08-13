@@ -55,6 +55,29 @@ function humanCounts(message, emojiNames) {
   });
 }
 
+// Discord keeps the real roster of who reacted with each emoji — no need to
+// store it ourselves. Union across emojiNames (a combined role needs more
+// than one) and dedupe, since the same person can react with several.
+async function reactorUsernames(message, emojiNames, botId) {
+  const names = new Map();
+  for (const emojiName of emojiNames) {
+    const r = message.reactions.cache.find((rc) => rc.emoji.name === emojiName);
+    if (!r) continue;
+    const users = await r.users.fetch();
+    for (const user of users.values()) {
+      if (user.id === botId) continue;
+      names.set(user.id, user.username);
+    }
+  }
+  return [...names.values()];
+}
+
+function formatNameList(names) {
+  if (names.length === 0) return null;
+  if (names.length === 1) return names[0];
+  return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+}
+
 async function fetchPartialMessage(message, client) {
   if (!message.partial) return true;
   try {
@@ -116,9 +139,10 @@ async function grantOrExtendTempRole({
   role,
   count,
   shouldGrant,
-  embedTitle,
+  buildTitle,
   color,
   forwardChannel,
+  emojiNames,
 }) {
   const existingTempRole = await TempRole.findByKey(
     guild.id,
@@ -161,8 +185,14 @@ async function grantOrExtendTempRole({
     throw dbError;
   }
 
+  const voterNames = await reactorUsernames(
+    message,
+    emojiNames,
+    client.user?.id,
+  );
+
   const embed = new EmbedBuilder()
-    .setTitle(embedTitle)
+    .setTitle(buildTitle(voterNames))
     .setColor(color)
     .setAuthor({ name: memberName, iconURL: member.displayAvatarURL() })
     .setTimestamp();
@@ -221,6 +251,7 @@ async function evaluateReactionRoles({
       }
 
       const [humanCount] = humanCounts(message, [reactionRole.emojiName]);
+      const predicate = reactionRole.roleName.replace(/People who are /g, "");
 
       const action = await grantOrExtendTempRole({
         client,
@@ -232,9 +263,15 @@ async function evaluateReactionRoles({
         role,
         count: humanCount,
         shouldGrant: humanCount >= reactionRole.threshold,
-        embedTitle: `${memberName} was determined to be ${reactionRole.roleName.replace(/People who are /g, "")}`,
+        buildTitle: (voterNames) => {
+          const subject = formatNameList(voterNames);
+          return subject
+            ? `${subject} determined ${memberName} to be ${predicate}`
+            : `${memberName} was determined to be ${predicate}`;
+        },
         color: reactionRole.color,
         forwardChannel: reactionRole.forwardChannel,
+        emojiNames: [reactionRole.emojiName],
       });
       if (action === "extended") extendedRoleNames.push(role.name);
     } catch (error) {
@@ -266,6 +303,11 @@ async function evaluateReactionRoles({
         continue;
       }
 
+      const predicate = combinedRole.roleName.replace(
+        /People who are |people who /gi,
+        "",
+      );
+
       const action = await grantOrExtendTempRole({
         client,
         TempRole,
@@ -276,9 +318,15 @@ async function evaluateReactionRoles({
         role,
         count: Math.min(...counts),
         shouldGrant: true,
-        embedTitle: `${memberName} ${combinedRole.roleName.replace(/People who are |people who /gi, "")}`,
+        buildTitle: (voterNames) => {
+          const subject = formatNameList(voterNames);
+          return subject
+            ? `${subject} determined ${memberName} to be ${predicate}`
+            : `${memberName} ${predicate}`;
+        },
         color: combinedRole.color,
         forwardChannel: combinedRole.forwardChannel,
+        emojiNames: combinedRole.emojiNames,
       });
       if (action === "extended") extendedRoleNames.push(role.name);
     } catch (error) {

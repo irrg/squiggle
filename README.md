@@ -7,7 +7,7 @@ Tailored to one server's specific vibe — but the mechanics are general enough 
 ## Features
 
 - `/did-a-thing` — slash command where members share an accomplishment and get a temporary role
-- **Reaction roles** — when a message hits a reaction threshold, the author gets a temporary role
+- **Reaction roles** — when a message hits a reaction threshold, the author gets a temporary role; the grant announcement credits everyone who reacted to it (e.g. "Alice and Bob determined irrg to be THE ABSOLUTE BEST")
 - **Combined reaction roles** — requires multiple different emoji to all hit threshold on the same message (e.g. "best" + "worst" → a third role)
 - **Auto-forwarding** — optionally forwards the triggering message to a configured channel when a role is first granted
 - **Forward veto** — anyone can react 🚫 on a bot-forwarded message to delete it (e.g. if the original author would rather post it themselves)

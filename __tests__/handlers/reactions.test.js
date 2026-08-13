@@ -18,7 +18,8 @@ vi.mock("../../src/utils/canPostInChannel.js", () => ({
 vi.mock("discord.js", () => ({
   MessageReferenceType: { Default: 0, Forward: 1 },
   EmbedBuilder: class {
-    setTitle() {
+    setTitle(title) {
+      this.title = title;
       return this;
     }
     setColor() {
@@ -121,6 +122,13 @@ const makeMessage = (overrides = {}) => ({
   ...overrides,
 });
 
+// Real MessageReaction objects expose users via reaction.users.fetch() —
+// default to nobody so grant-path tests that don't care about voter
+// crediting keep asserting on the old, un-suffixed title text.
+const makeUsersCollection = (users = []) => ({
+  fetch: vi.fn().mockResolvedValue(new Map(users.map((u) => [u.id, u]))),
+});
+
 // Evaluation reads counts from the message's live reaction cache, not from
 // the specific reaction that triggered the event — mirror this reaction
 // into that cache so single-emoji tests keep working the way they read.
@@ -129,14 +137,15 @@ const makeReaction = (overrides = {}) => {
   const count = overrides.count ?? 4;
   const me = overrides.me ?? true;
   const message = overrides.message ?? makeMessage();
+  const users = overrides.users ?? makeUsersCollection();
 
   message.reactions.cache.find = vi
     .fn()
     .mockImplementation((fn) =>
-      fn({ emoji, count, me }) ? { emoji, count, me } : undefined,
+      fn({ emoji, count, me }) ? { emoji, count, me, users } : undefined,
     );
 
-  return { emoji, count, me, message, ...overrides };
+  return { emoji, count, me, message, users, ...overrides };
 };
 
 const makeUser = (id = "reactor-id", username = "reactor") => ({
@@ -212,6 +221,33 @@ describe("messageReactionAdd handler", () => {
     );
     expect(reaction.message.reply).toHaveBeenCalledWith(
       expect.objectContaining({ embeds: expect.any(Array) }),
+    );
+  });
+
+  it("falls back to the plain title when Discord returns no voters for the grant", async () => {
+    const reaction = makeReaction({ count: 4, me: true });
+    await addAndFlush(reaction, makeUser(), deps());
+
+    const embed = reaction.message.reply.mock.calls[0][0].embeds[0];
+    expect(embed.title).toBe("testuser was determined to be Good Person");
+  });
+
+  it("credits every voter, in active voice, on the grant embed title", async () => {
+    const reaction = makeReaction({
+      count: 4,
+      me: true,
+      users: makeUsersCollection([
+        { id: "voter-1", username: "Alice" },
+        { id: "voter-2", username: "Bob" },
+        { id: "bot-id", username: "squiggle-bot" },
+      ]),
+    });
+
+    await addAndFlush(reaction, makeUser(), deps());
+
+    const embed = reaction.message.reply.mock.calls[0][0].embeds[0];
+    expect(embed.title).toBe(
+      "Alice and Bob determined testuser to be Good Person",
     );
   });
 
@@ -582,11 +618,13 @@ describe("combined reaction role handling", () => {
         emoji: { name: "TheBest" },
         count: bestCount + 1,
         me: true,
+        users: makeUsersCollection(),
       };
       const worst = {
         emoji: { name: "TheWorst" },
         count: worstCount + 1,
         me: true,
+        users: makeUsersCollection(),
       };
       return fn(best) ? best : fn(worst) ? worst : undefined;
     });
