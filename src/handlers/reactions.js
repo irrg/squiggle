@@ -75,7 +75,8 @@ async function reactorUsernames(message, emojiNames, botId) {
 function formatNameList(names) {
   if (names.length === 0) return null;
   if (names.length === 1) return names[0];
-  return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+  if (names.length === 2) return names.join(" and ");
+  return `${names.slice(0, -1).join(", ")}, and ${names[names.length - 1]}`;
 }
 
 async function fetchPartialMessage(message, client) {
@@ -341,7 +342,7 @@ async function evaluateReactionRoles({
   if (extendedRoleNames.length > 0) {
     const names = [...new Set(extendedRoleNames)];
     const roleList = names.map((name) => `**${name}**`).join(", ");
-    const byList = reactorNames.map((name) => `**${name}**`).join(", ");
+    const byList = formatNameList(reactorNames.map((name) => `**${name}**`));
     const by = byList ? ` by ${byList}` : "";
     await message.reply(`Extended by four hours${by}: ${roleList}`);
   }

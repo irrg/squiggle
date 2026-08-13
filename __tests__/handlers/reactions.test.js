@@ -251,6 +251,25 @@ describe("messageReactionAdd handler", () => {
     );
   });
 
+  it("uses an Oxford comma in the grant title when three or more voters are credited", async () => {
+    const reaction = makeReaction({
+      count: 4,
+      me: true,
+      users: makeUsersCollection([
+        { id: "voter-1", username: "Alice" },
+        { id: "voter-2", username: "Bob" },
+        { id: "voter-3", username: "Carol" },
+      ]),
+    });
+
+    await addAndFlush(reaction, makeUser(), deps());
+
+    const embed = reaction.message.reply.mock.calls[0][0].embeds[0];
+    expect(embed.title).toBe(
+      "Alice, Bob, and Carol determined testuser to be Good Person",
+    );
+  });
+
   it("extends expiration when a genuinely new reactor pushes count above HWM", async () => {
     const existingTempRole = {
       id: 1,
@@ -463,7 +482,27 @@ describe("reaction debounce and rollup", () => {
     await vi.advanceTimersByTimeAsync(REACTION_DEBOUNCE_MS);
 
     expect(reaction.message.reply).toHaveBeenCalledWith(
-      expect.stringContaining("**Alice**, **Bob**"),
+      expect.stringContaining("**Alice** and **Bob**"),
+    );
+  });
+
+  it("uses an Oxford comma when crediting three or more reactors", async () => {
+    const existingTempRole = {
+      id: 1,
+      maxReactionCount: 1,
+      expirationTime: new Date(Date.now() + 10 * 60 * 60 * 1000),
+    };
+    mockTempRole.findByKey.mockResolvedValueOnce(existingTempRole);
+
+    const reaction = makeReaction({ count: 4, me: true });
+
+    await handleReactionAdd(reaction, makeUser("reactor-1", "Alice"), deps());
+    await handleReactionAdd(reaction, makeUser("reactor-2", "Bob"), deps());
+    await handleReactionAdd(reaction, makeUser("reactor-3", "Carol"), deps());
+    await vi.advanceTimersByTimeAsync(REACTION_DEBOUNCE_MS);
+
+    expect(reaction.message.reply).toHaveBeenCalledWith(
+      expect.stringContaining("**Alice**, **Bob**, and **Carol**"),
     );
   });
 
