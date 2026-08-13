@@ -11,8 +11,8 @@ Tailored to one server's specific vibe — but the mechanics are general enough 
 - **Combined reaction roles** — requires multiple different emoji to all hit threshold on the same message (e.g. "best" + "worst" → a third role)
 - **Auto-forwarding** — optionally forwards the triggering message to a configured channel when a role is first granted
 - **Forward veto** — anyone can react 🚫 on a bot-forwarded message to delete it (e.g. if the original author would rather post it themselves)
-- **Extensions** — each genuinely new reactor adds 4 hours to the role's expiration
-- **Reaction debouncing** — grants/extensions on a message are evaluated once a burst of reactions goes quiet (a few seconds), not once per reaction, and multiple roles affected in that window are announced in a single reply that credits everyone who reacted during it, instead of spamming one per role
+- **Extensions** — each genuinely new reactor adds 4 hours to the role's expiration, announced as a card matching the grant announcement's look and phrasing (e.g. "Alice and Bob determined irrg to be THE ABSOLUTE BEST and extended their role for another four hours")
+- **Reaction debouncing** — grants/extensions on a message are evaluated once a burst of reactions goes quiet (a few seconds), not once per reaction, and multiple roles affected in that window are announced in a single card that credits everyone who reacted during it, instead of spamming one per role
 - **Auto-expiry** — all roles expire after 16 hours; a worker cleans them up automatically
 - **Retired, not deleted** — however a role's record stops being active (natural expiry, superseded by a later grant of the same role, revoked because reactions dropped, or manually expired via `/squiggle expire`), the record is marked spent rather than removed. That message is permanently retired for that role — later reactions on it can't trigger a "new" besting/worsting — and the history still counts toward `/squiggle leaderboard`
 - `/squiggle leaderboard` — top 3 members per configured reaction role, open to everyone

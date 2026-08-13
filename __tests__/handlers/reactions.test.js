@@ -22,13 +22,18 @@ vi.mock("discord.js", () => ({
       this.title = title;
       return this;
     }
-    setColor() {
+    setColor(color) {
+      this.color = color;
       return this;
     }
     setAuthor() {
       return this;
     }
     setTimestamp() {
+      return this;
+    }
+    addFields(...fields) {
+      this.fields = fields;
       return this;
     }
   },
@@ -287,11 +292,9 @@ describe("messageReactionAdd handler", () => {
       expect.any(Date),
       4,
     );
-    expect(reaction.message.reply).toHaveBeenCalledWith(
-      expect.stringContaining("Extended by four hours"),
-    );
-    expect(reaction.message.reply).toHaveBeenCalledWith(
-      expect.stringContaining("**reactor**"),
+    const embed = reaction.message.reply.mock.calls[0][0].embeds[0];
+    expect(embed.title).toBe(
+      "reactor determined testuser to be Good Person and extended their role for another four hours",
     );
   });
 
@@ -481,9 +484,8 @@ describe("reaction debounce and rollup", () => {
     await handleReactionAdd(reaction, makeUser("reactor-2", "Bob"), deps());
     await vi.advanceTimersByTimeAsync(REACTION_DEBOUNCE_MS);
 
-    expect(reaction.message.reply).toHaveBeenCalledWith(
-      expect.stringContaining("**Alice** and **Bob**"),
-    );
+    const embed = reaction.message.reply.mock.calls[0][0].embeds[0];
+    expect(embed.title).toContain("Alice and Bob determined");
   });
 
   it("uses an Oxford comma when crediting three or more reactors", async () => {
@@ -501,9 +503,8 @@ describe("reaction debounce and rollup", () => {
     await handleReactionAdd(reaction, makeUser("reactor-3", "Carol"), deps());
     await vi.advanceTimersByTimeAsync(REACTION_DEBOUNCE_MS);
 
-    expect(reaction.message.reply).toHaveBeenCalledWith(
-      expect.stringContaining("**Alice**, **Bob**, and **Carol**"),
-    );
+    const embed = reaction.message.reply.mock.calls[0][0].embeds[0];
+    expect(embed.title).toContain("Alice, Bob, and Carol determined");
   });
 
   it("credits the same reactor only once even if they mash multiple emoji", async () => {
@@ -521,8 +522,8 @@ describe("reaction debounce and rollup", () => {
     await handleReactionAdd(reaction, alice, deps());
     await vi.advanceTimersByTimeAsync(REACTION_DEBOUNCE_MS);
 
-    const [message] = reaction.message.reply.mock.calls[0];
-    expect(message.match(/Alice/g)).toHaveLength(1);
+    const embed = reaction.message.reply.mock.calls[0][0].embeds[0];
+    expect(embed.title.match(/Alice/g)).toHaveLength(1);
   });
 
   it("sends one consolidated reply when multiple roles are extended in the same window", async () => {
@@ -568,12 +569,9 @@ describe("reaction debounce and rollup", () => {
     await addAndFlush(reaction, makeUser(), deps());
 
     expect(reaction.message.reply).toHaveBeenCalledTimes(1);
-    expect(reaction.message.reply).toHaveBeenCalledWith(
-      expect.stringContaining("Good Person"),
-    );
-    expect(reaction.message.reply).toHaveBeenCalledWith(
-      expect.stringContaining("Controversial Person"),
-    );
+    const embed = reaction.message.reply.mock.calls[0][0].embeds[0];
+    expect(embed.fields[0].value).toContain("Good Person");
+    expect(embed.fields[0].value).toContain("Controversial Person");
   });
 });
 

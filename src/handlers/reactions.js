@@ -79,6 +79,15 @@ function formatNameList(names) {
   return `${names.slice(0, -1).join(", ")}, and ${names[names.length - 1]}`;
 }
 
+// Shared "X determined Y to be Z" phrasing used by both grant and extend
+// titles. Falls back to a subject-less phrasing when Discord doesn't hand
+// back a voter list (should be rare — see reactorUsernames).
+function determinedTitle(subject, memberName, predicate, fallback) {
+  return subject
+    ? `${subject} determined ${memberName} to be ${predicate}`
+    : fallback;
+}
+
 async function fetchPartialMessage(message, client) {
   if (!message.partial) return true;
   try {
@@ -233,7 +242,7 @@ async function evaluateReactionRoles({
     return;
   }
   const memberName = member.nickname || member.user.username;
-  const extendedRoleNames = [];
+  const extendedRoles = [];
 
   // Sequential, not Promise.all — two config entries can target the same
   // Discord role, and interleaving their read-then-write TempRole calls
@@ -264,17 +273,23 @@ async function evaluateReactionRoles({
         role,
         count: humanCount,
         shouldGrant: humanCount >= reactionRole.threshold,
-        buildTitle: (voterNames) => {
-          const subject = formatNameList(voterNames);
-          return subject
-            ? `${subject} determined ${memberName} to be ${predicate}`
-            : `${memberName} was determined to be ${predicate}`;
-        },
+        buildTitle: (voterNames) =>
+          determinedTitle(
+            formatNameList(voterNames),
+            memberName,
+            predicate,
+            `${memberName} was determined to be ${predicate}`,
+          ),
         color: reactionRole.color,
         forwardChannel: reactionRole.forwardChannel,
         emojiNames: [reactionRole.emojiName],
       });
-      if (action === "extended") extendedRoleNames.push(role.name);
+      if (action === "extended")
+        extendedRoles.push({
+          name: role.name,
+          predicate,
+          color: reactionRole.color,
+        });
     } catch (error) {
       await sendDebugMessage(
         client,
@@ -319,17 +334,23 @@ async function evaluateReactionRoles({
         role,
         count: Math.min(...counts),
         shouldGrant: true,
-        buildTitle: (voterNames) => {
-          const subject = formatNameList(voterNames);
-          return subject
-            ? `${subject} determined ${memberName} to be ${predicate}`
-            : `${memberName} ${predicate}`;
-        },
+        buildTitle: (voterNames) =>
+          determinedTitle(
+            formatNameList(voterNames),
+            memberName,
+            predicate,
+            `${memberName} ${predicate}`,
+          ),
         color: combinedRole.color,
         forwardChannel: combinedRole.forwardChannel,
         emojiNames: combinedRole.emojiNames,
       });
-      if (action === "extended") extendedRoleNames.push(role.name);
+      if (action === "extended")
+        extendedRoles.push({
+          name: role.name,
+          predicate,
+          color: combinedRole.color,
+        });
     } catch (error) {
       await sendDebugMessage(
         client,
@@ -339,12 +360,40 @@ async function evaluateReactionRoles({
     }
   }
 
-  if (extendedRoleNames.length > 0) {
-    const names = [...new Set(extendedRoleNames)];
-    const roleList = names.map((name) => `**${name}**`).join(", ");
-    const byList = formatNameList(reactorNames.map((name) => `**${name}**`));
-    const by = byList ? ` by ${byList}` : "";
-    await message.reply(`Extended by four hours${by}: ${roleList}`);
+  if (extendedRoles.length > 0) {
+    const uniqueRoles = [
+      ...new Map(extendedRoles.map((r) => [r.name, r])).values(),
+    ];
+    const subject = formatNameList(reactorNames);
+
+    const embed = new EmbedBuilder()
+      .setAuthor({ name: memberName, iconURL: member.displayAvatarURL() })
+      .setTimestamp();
+
+    if (uniqueRoles.length === 1) {
+      const { predicate, color } = uniqueRoles[0];
+      const title = determinedTitle(
+        subject,
+        memberName,
+        predicate,
+        `${memberName} was determined to be ${predicate}`,
+      );
+      embed
+        .setTitle(`${title} and extended their role for another four hours`)
+        .setColor(color);
+    } else {
+      const roleList = uniqueRoles.map((r) => r.name).join(", ");
+      embed
+        .setTitle(
+          subject
+            ? `${subject} extended ${memberName}'s roles for another four hours`
+            : `${memberName}'s roles were extended for another four hours`,
+        )
+        .addFields({ name: "Roles", value: roleList })
+        .setColor("#5865F2");
+    }
+
+    await message.reply({ embeds: [embed] });
   }
 }
 
