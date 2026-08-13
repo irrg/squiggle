@@ -12,6 +12,23 @@ import {
 // single evaluation pass and a single reply, instead of one per reaction.
 const pendingEvaluations = new Map();
 
+// Everyone who reacted during the current debounce window, so the rollup
+// reply can credit them instead of naming only the reaction that happened
+// to close the window.
+const pendingReactors = new Map();
+
+function trackReactor(messageId, user) {
+  if (!pendingReactors.has(messageId))
+    pendingReactors.set(messageId, new Map());
+  pendingReactors.get(messageId).set(user.id, user.username);
+}
+
+function takeReactorNames(messageId) {
+  const reactors = pendingReactors.get(messageId);
+  pendingReactors.delete(messageId);
+  return reactors ? [...reactors.values()] : [];
+}
+
 function scheduleEvaluation(messageId, evaluate) {
   clearTimeout(pendingEvaluations.get(messageId));
   const timer = setTimeout(() => {
@@ -172,6 +189,7 @@ async function evaluateReactionRoles({
   guild,
   message,
   messageAuthorId,
+  reactorNames,
 }) {
   let member;
   try {
@@ -275,7 +293,9 @@ async function evaluateReactionRoles({
   if (extendedRoleNames.length > 0) {
     const names = [...new Set(extendedRoleNames)];
     const roleList = names.map((name) => `**${name}**`).join(", ");
-    await message.reply(`Extended by four hours: ${roleList}`);
+    const byList = reactorNames.map((name) => `**${name}**`).join(", ");
+    const by = byList ? ` by ${byList}` : "";
+    await message.reply(`Extended by four hours${by}: ${roleList}`);
   }
 }
 
@@ -302,6 +322,8 @@ export async function handleReactionAdd(
 
   if (user.id === messageAuthorId) return;
 
+  trackReactor(message.id, user);
+
   scheduleEvaluation(message.id, () =>
     evaluateReactionRoles({
       client,
@@ -310,6 +332,7 @@ export async function handleReactionAdd(
       guild,
       message,
       messageAuthorId,
+      reactorNames: takeReactorNames(message.id),
     }),
   );
 }

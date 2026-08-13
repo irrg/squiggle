@@ -139,7 +139,10 @@ const makeReaction = (overrides = {}) => {
   return { emoji, count, me, message, ...overrides };
 };
 
-const makeUser = (id = "reactor-id") => ({ id, username: "reactor" });
+const makeUser = (id = "reactor-id", username = "reactor") => ({
+  id,
+  username,
+});
 
 // handleReactionAdd only schedules a debounced evaluation; advance past the
 // quiet window to actually run it and flush any resulting async work.
@@ -231,6 +234,9 @@ describe("messageReactionAdd handler", () => {
     );
     expect(reaction.message.reply).toHaveBeenCalledWith(
       expect.stringContaining("Extended by four hours"),
+    );
+    expect(reaction.message.reply).toHaveBeenCalledWith(
+      expect.stringContaining("**reactor**"),
     );
   });
 
@@ -404,6 +410,44 @@ describe("reaction debounce and rollup", () => {
 
     await vi.advanceTimersByTimeAsync(1000);
     expect(mockTempRole.create).toHaveBeenCalledTimes(1);
+  });
+
+  it("credits every distinct reactor from the window in the rollup reply", async () => {
+    const existingTempRole = {
+      id: 1,
+      maxReactionCount: 1,
+      expirationTime: new Date(Date.now() + 10 * 60 * 60 * 1000),
+    };
+    mockTempRole.findByKey.mockResolvedValueOnce(existingTempRole);
+
+    const reaction = makeReaction({ count: 4, me: true });
+
+    await handleReactionAdd(reaction, makeUser("reactor-1", "Alice"), deps());
+    await handleReactionAdd(reaction, makeUser("reactor-2", "Bob"), deps());
+    await vi.advanceTimersByTimeAsync(REACTION_DEBOUNCE_MS);
+
+    expect(reaction.message.reply).toHaveBeenCalledWith(
+      expect.stringContaining("**Alice**, **Bob**"),
+    );
+  });
+
+  it("credits the same reactor only once even if they mash multiple emoji", async () => {
+    const existingTempRole = {
+      id: 1,
+      maxReactionCount: 1,
+      expirationTime: new Date(Date.now() + 10 * 60 * 60 * 1000),
+    };
+    mockTempRole.findByKey.mockResolvedValueOnce(existingTempRole);
+
+    const reaction = makeReaction({ count: 4, me: true });
+    const alice = makeUser("reactor-1", "Alice");
+
+    await handleReactionAdd(reaction, alice, deps());
+    await handleReactionAdd(reaction, alice, deps());
+    await vi.advanceTimersByTimeAsync(REACTION_DEBOUNCE_MS);
+
+    const [message] = reaction.message.reply.mock.calls[0];
+    expect(message.match(/Alice/g)).toHaveLength(1);
   });
 
   it("sends one consolidated reply when multiple roles are extended in the same window", async () => {
