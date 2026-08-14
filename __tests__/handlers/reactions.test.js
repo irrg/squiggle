@@ -89,6 +89,12 @@ const deps = () => ({
 
 // --- Factories ---
 
+// resolveDisplayName() falls back to guild.members.fetch(id) when the id
+// isn't in the member cache — this registry lets that mock look up the
+// username any given test's makeUser/makeUsersCollection registered for an
+// id, so "Alice" stays "Alice" instead of collapsing to a generic default.
+const knownUsernames = new Map();
+
 const makeMember = (id = "user-id") => ({
   id,
   nickname: null,
@@ -108,7 +114,13 @@ const makeGuild = (overrides = {}) => ({
     },
   },
   members: {
-    fetch: vi.fn().mockResolvedValue(makeMember()),
+    cache: { get: vi.fn().mockReturnValue(undefined) },
+    fetch: vi.fn().mockImplementation((id) =>
+      Promise.resolve({
+        ...makeMember(id),
+        user: { username: knownUsernames.get(id) ?? "testuser" },
+      }),
+    ),
   },
   channels: { cache: { find: vi.fn().mockReturnValue(undefined) } },
   ...overrides,
@@ -130,9 +142,12 @@ const makeMessage = (overrides = {}) => ({
 // Real MessageReaction objects expose users via reaction.users.fetch() —
 // default to nobody so grant-path tests that don't care about voter
 // crediting keep asserting on the old, un-suffixed title text.
-const makeUsersCollection = (users = []) => ({
-  fetch: vi.fn().mockResolvedValue(new Map(users.map((u) => [u.id, u]))),
-});
+const makeUsersCollection = (users = []) => {
+  users.forEach((u) => knownUsernames.set(u.id, u.username));
+  return {
+    fetch: vi.fn().mockResolvedValue(new Map(users.map((u) => [u.id, u]))),
+  };
+};
 
 // Evaluation reads counts from the message's live reaction cache, not from
 // the specific reaction that triggered the event — mirror this reaction
@@ -153,10 +168,10 @@ const makeReaction = (overrides = {}) => {
   return { emoji, count, me, message, users, ...overrides };
 };
 
-const makeUser = (id = "reactor-id", username = "reactor") => ({
-  id,
-  username,
-});
+const makeUser = (id = "reactor-id", username = "reactor") => {
+  knownUsernames.set(id, username);
+  return { id, username };
+};
 
 // handleReactionAdd only schedules a debounced evaluation; advance past the
 // quiet window to actually run it and flush any resulting async work.
@@ -168,6 +183,7 @@ async function addAndFlush(reaction, user, options = deps()) {
 beforeEach(() => {
   vi.useFakeTimers();
   vi.clearAllMocks();
+  knownUsernames.clear();
   mockTempRole.findByMessageId.mockReset().mockResolvedValue(null);
   mockTempRole.findByKey.mockReset().mockResolvedValue(null);
   mockTempRole.create.mockReset().mockResolvedValue(undefined);
@@ -254,6 +270,29 @@ describe("messageReactionAdd handler", () => {
     expect(embed.title).toBe(
       "Alice and Bob determined testuser to be Good Person",
     );
+  });
+
+  it("credits voters by their on-server nickname, not their global Discord handle", async () => {
+    const reaction = makeReaction({
+      count: 4,
+      me: true,
+      users: makeUsersCollection([
+        { id: "voter-1", username: "xXglobalHandleXx" },
+      ]),
+    });
+    reaction.message.guild.members.cache.get = vi.fn().mockImplementation(
+      (id) =>
+        id === "voter-1" && {
+          id,
+          nickname: "Alice",
+          user: { username: "xXglobalHandleXx" },
+        },
+    );
+
+    await addAndFlush(reaction, makeUser(), deps());
+
+    const embed = reaction.message.reply.mock.calls[0][0].embeds[0];
+    expect(embed.title).toBe("Alice determined testuser to be Good Person");
   });
 
   it("uses an Oxford comma in the grant title when three or more voters are credited", async () => {
@@ -486,6 +525,35 @@ describe("reaction debounce and rollup", () => {
 
     const embed = reaction.message.reply.mock.calls[0][0].embeds[0];
     expect(embed.title).toContain("Alice and Bob determined");
+  });
+
+  it("credits an extending reactor by nickname, not global handle, even though the mash burst never eagerly resolved it", async () => {
+    const existingTempRole = {
+      id: 1,
+      maxReactionCount: 1,
+      expirationTime: new Date(Date.now() + 10 * 60 * 60 * 1000),
+    };
+    mockTempRole.findByKey.mockResolvedValueOnce(existingTempRole);
+
+    const reaction = makeReaction({ count: 4, me: true });
+    reaction.message.guild.members.cache.get = vi.fn().mockImplementation(
+      (id) =>
+        id === "reactor-1" && {
+          id,
+          nickname: "Alice",
+          user: { username: "xXglobalHandleXx" },
+        },
+    );
+
+    await handleReactionAdd(
+      reaction,
+      makeUser("reactor-1", "xXglobalHandleXx"),
+      deps(),
+    );
+    await vi.advanceTimersByTimeAsync(REACTION_DEBOUNCE_MS);
+
+    const embed = reaction.message.reply.mock.calls[0][0].embeds[0];
+    expect(embed.title).toContain("Alice determined");
   });
 
   it("uses an Oxford comma when crediting three or more reactors", async () => {

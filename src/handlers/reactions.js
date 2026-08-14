@@ -17,13 +17,17 @@ const pendingEvaluations = new Map();
 // to close the window.
 const pendingReactors = new Map();
 
+// Stores the raw reactor (no nickname lookup here) — resolving on every
+// single reaction event would mean a members.fetch() per event even when
+// the burst never ends up granting or extending anything. Display names
+// get resolved once, in bulk, only if the evaluation actually needs them.
 function trackReactor(messageId, user) {
   if (!pendingReactors.has(messageId))
     pendingReactors.set(messageId, new Map());
-  pendingReactors.get(messageId).set(user.id, user.username);
+  pendingReactors.get(messageId).set(user.id, user);
 }
 
-function takeReactorNames(messageId) {
+function takeReactors(messageId) {
   const reactors = pendingReactors.get(messageId);
   pendingReactors.delete(messageId);
   return reactors ? [...reactors.values()] : [];
@@ -55,18 +59,29 @@ function humanCounts(message, emojiNames) {
   });
 }
 
+// Nickname if the member set one for this server, otherwise their global
+// username — mirrors how the post author's own name is resolved
+// (member.nickname || member.user.username) so credited names read like
+// the rest of the card instead of falling back to Discord's global handle.
+async function resolveDisplayName(guild, user) {
+  const member =
+    guild.members.cache.get(user.id) ??
+    (await guild.members.fetch(user.id).catch(() => null));
+  return member ? member.nickname || member.user.username : user.username;
+}
+
 // Discord keeps the real roster of who reacted with each emoji — no need to
 // store it ourselves. Union across emojiNames (a combined role needs more
 // than one) and dedupe, since the same person can react with several.
-async function reactorUsernames(message, emojiNames, botId) {
+async function reactorUsernames(message, guild, emojiNames, botId) {
   const names = new Map();
   for (const emojiName of emojiNames) {
     const r = message.reactions.cache.find((rc) => rc.emoji.name === emojiName);
     if (!r) continue;
     const users = await r.users.fetch();
     for (const user of users.values()) {
-      if (user.id === botId) continue;
-      names.set(user.id, user.username);
+      if (user.id === botId || names.has(user.id)) continue;
+      names.set(user.id, await resolveDisplayName(guild, user));
     }
   }
   return [...names.values()];
@@ -197,6 +212,7 @@ async function grantOrExtendTempRole({
 
   const voterNames = await reactorUsernames(
     message,
+    guild,
     emojiNames,
     client.user?.id,
   );
@@ -229,7 +245,7 @@ async function evaluateReactionRoles({
   guild,
   message,
   messageAuthorId,
-  reactorNames,
+  reactors,
 }) {
   let member;
   try {
@@ -364,6 +380,9 @@ async function evaluateReactionRoles({
     const uniqueRoles = [
       ...new Map(extendedRoles.map((r) => [r.name, r])).values(),
     ];
+    const reactorNames = await Promise.all(
+      reactors.map((reactor) => resolveDisplayName(guild, reactor)),
+    );
     const subject = formatNameList(reactorNames);
 
     const embed = new EmbedBuilder()
@@ -430,7 +449,7 @@ export async function handleReactionAdd(
       guild,
       message,
       messageAuthorId,
-      reactorNames: takeReactorNames(message.id),
+      reactors: takeReactors(message.id),
     }),
   );
 }
