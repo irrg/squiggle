@@ -225,12 +225,22 @@ async function grantOrExtendTempRole({
 
   await message.reply({ embeds: [embed] });
 
-  await forwardIfConfigured({
-    client,
-    guild,
-    message,
-    channelName: forwardChannel,
-  });
+  // Role + tempRole record are already committed at this point, so a forward
+  // failure (e.g. Discord rejects cross-posting between NSFW/non-NSFW
+  // channels) isn't a grant failure — don't let it be reported as one.
+  try {
+    await forwardIfConfigured({
+      client,
+      guild,
+      message,
+      channelName: forwardChannel,
+    });
+  } catch (forwardError) {
+    await sendDebugMessage(
+      client,
+      `Error forwarding to "${forwardChannel}": ${formatError(forwardError)}`,
+    );
+  }
 
   return "granted";
 }
