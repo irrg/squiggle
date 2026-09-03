@@ -119,52 +119,58 @@ describe("TempRole model", () => {
     expect(results).toHaveLength(0);
   });
 
-  it("topByRole ranks members by number of rows for that role, most first", async () => {
+  it("topByRole ranks members by summed maxReactionCount for that role, most first", async () => {
     const t = new Date(Date.now() + 60 * 60 * 1000);
-    // member-1: 3 rows, member-2: 1 row, member-3: 2 rows
+    // member-1: 4 + 5 + 4 = 13, member-2: 6, member-3: 5 + 5 = 10
     await db.create({
       ...base,
       memberId: "member-1",
       messageId: "msg-1",
       expirationTime: t,
+      maxReactionCount: 4,
     });
     await db.create({
       ...base,
       memberId: "member-1",
       messageId: "msg-2",
       expirationTime: t,
+      maxReactionCount: 5,
     });
     await db.create({
       ...base,
       memberId: "member-1",
       messageId: "msg-3",
       expirationTime: t,
+      maxReactionCount: 4,
     });
     await db.create({
       ...base,
       memberId: "member-2",
       messageId: "msg-4",
       expirationTime: t,
+      maxReactionCount: 6,
     });
     await db.create({
       ...base,
       memberId: "member-3",
       messageId: "msg-5",
       expirationTime: t,
+      maxReactionCount: 5,
     });
     await db.create({
       ...base,
       memberId: "member-3",
       messageId: "msg-6",
       expirationTime: t,
+      maxReactionCount: 5,
     });
 
     const top = await db.topByRole("guild-1", "role-1", 3);
 
     expect(top).toHaveLength(3);
-    expect(top[0]).toMatchObject({ memberId: "member-1", count: 3 });
-    expect(top[1]).toMatchObject({ memberId: "member-3", count: 2 });
-    expect(top[2]).toMatchObject({ memberId: "member-2", count: 1 });
+    expect(top[0]).toMatchObject({ memberId: "member-1", count: 13 });
+    expect(top[1]).toMatchObject({ memberId: "member-3", count: 10 });
+    expect(top[2]).toMatchObject({ memberId: "member-2", count: 6 });
   });
 
   it("topByRole respects the limit and only counts rows for that role", async () => {
@@ -174,18 +180,21 @@ describe("TempRole model", () => {
       memberId: "member-1",
       messageId: "msg-1",
       expirationTime: t,
+      maxReactionCount: 4,
     });
     await db.create({
       ...base,
       memberId: "member-1",
       messageId: "msg-2",
       expirationTime: t,
+      maxReactionCount: 4,
     });
     await db.create({
       ...base,
       memberId: "member-2",
       messageId: "msg-3",
       expirationTime: t,
+      maxReactionCount: 4,
     });
     await db.create({
       ...base,
@@ -193,6 +202,7 @@ describe("TempRole model", () => {
       roleId: "role-2",
       messageId: "msg-4",
       expirationTime: t,
+      maxReactionCount: 10,
     });
 
     const top = await db.topByRole("guild-1", "role-1", 1);

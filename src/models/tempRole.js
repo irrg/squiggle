@@ -73,7 +73,7 @@ const createDB = async (filePath) => {
         memberName: doc.memberName,
         count: 0,
       };
-      entry.count += 1;
+      entry.count += doc.maxReactionCount ?? 0;
       entry.memberName = doc.memberName;
       counts.set(doc.memberId, entry);
     }

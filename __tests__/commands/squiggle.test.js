@@ -202,18 +202,21 @@ describe("squiggle admin command", () => {
       memberId: "member-1",
       messageId: "msg-1",
       expirationTime: t,
+      maxReactionCount: 4,
     });
     await db.create({
       ...base,
       memberId: "member-1",
       messageId: "msg-2",
       expirationTime: t,
+      maxReactionCount: 5,
     });
     await db.create({
       ...base,
       memberId: "member-2",
       messageId: "msg-3",
       expirationTime: t,
+      maxReactionCount: 6,
     });
     await db.create({
       ...base,
@@ -222,6 +225,7 @@ describe("squiggle admin command", () => {
       roleName: "Controversial Person",
       messageId: "msg-4",
       expirationTime: t,
+      maxReactionCount: 4,
     });
 
     const interaction = makeInteraction({ sub: "leaderboard" });
@@ -233,8 +237,8 @@ describe("squiggle admin command", () => {
       (f) => f.name === "Controversial Person",
     );
 
-    expect(coolField.value).toBe("1. **testuser** — 2\n2. **testuser** — 1");
-    expect(controversialField.value).toBe("1. **testuser** — 1");
+    expect(coolField.value).toBe("1. **testuser** — 9\n2. **testuser** — 6");
+    expect(controversialField.value).toBe("1. **testuser** — 4");
   });
 
   it("leaderboard shows a placeholder for roles with no data", async () => {
