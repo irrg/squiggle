@@ -43,14 +43,19 @@ const run = async (client, db) => {
       const channel = resolveLeaderboardChannel(guild, channelName);
       if (!channel) continue;
 
-      const fields = await buildLeaderboardFields(config, guild, db);
-      if (fields.length === 0) continue;
+      const { attainmentFields, popularityFields } =
+        await buildLeaderboardFields(config, guild, db);
+      if (attainmentFields.length === 0) continue;
 
-      const embed = new EmbedBuilder()
-        .setTitle("Weekly Reaction Role Leaderboard")
+      const attainmentEmbed = new EmbedBuilder()
+        .setTitle("Weekly Leaderboard: Most Roles Earned")
         .setColor("#5865F2")
-        .addFields(fields);
-      await channel.send({ embeds: [embed] });
+        .addFields(attainmentFields);
+      const popularityEmbed = new EmbedBuilder()
+        .setTitle("Weekly Leaderboard: Most Popular")
+        .setColor("#5865F2")
+        .addFields(popularityFields);
+      await channel.send({ embeds: [attainmentEmbed, popularityEmbed] });
     }
   } catch (error) {
     await sendDebugMessage(

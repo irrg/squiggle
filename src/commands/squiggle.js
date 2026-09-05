@@ -155,21 +155,29 @@ export async function init(interaction, client, db) {
   }
 
   if (sub === "leaderboard") {
-    const fields = await buildLeaderboardFields(config, interaction.guild, db);
+    const { attainmentFields, popularityFields } = await buildLeaderboardFields(
+      config,
+      interaction.guild,
+      db,
+    );
 
-    if (fields.length === 0) {
+    if (attainmentFields.length === 0) {
       return interaction.reply({
         content: "No reaction roles configured for this server.",
         flags: MessageFlags.Ephemeral,
       });
     }
 
-    const embed = new EmbedBuilder()
-      .setTitle("Reaction Role Leaderboard")
+    const attainmentEmbed = new EmbedBuilder()
+      .setTitle("Most Roles Earned")
       .setColor("#5865F2")
-      .addFields(fields);
+      .addFields(attainmentFields);
+    const popularityEmbed = new EmbedBuilder()
+      .setTitle("Most Popular")
+      .setColor("#5865F2")
+      .addFields(popularityFields);
     return interaction.reply({
-      embeds: [embed],
+      embeds: [attainmentEmbed, popularityEmbed],
       flags: MessageFlags.Ephemeral,
     });
   }

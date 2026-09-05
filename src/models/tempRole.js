@@ -71,15 +71,23 @@ const createDB = async (filePath) => {
       const entry = counts.get(doc.memberId) ?? {
         memberId: doc.memberId,
         memberName: doc.memberName,
-        count: 0,
+        totalReactions: 0,
+        postCount: 0,
       };
-      entry.count += doc.maxReactionCount ?? 0;
+      entry.totalReactions += doc.maxReactionCount ?? 0;
+      entry.postCount += 1;
       entry.memberName = doc.memberName;
       counts.set(doc.memberId, entry);
     }
-    return [...counts.values()]
-      .sort((a, b) => b.count - a.count)
-      .slice(0, limit);
+    const entries = [...counts.values()];
+    return {
+      byVotes: [...entries]
+        .sort((a, b) => b.totalReactions - a.totalReactions)
+        .slice(0, limit),
+      byAttainment: [...entries]
+        .sort((a, b) => b.postCount - a.postCount)
+        .slice(0, limit),
+    };
   };
 
   const hasLaterExpiration = async (guildId, memberId, roleId, afterMs) => {

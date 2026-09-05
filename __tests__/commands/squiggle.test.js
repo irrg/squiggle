@@ -231,22 +231,43 @@ describe("squiggle admin command", () => {
     const interaction = makeInteraction({ sub: "leaderboard" });
     await init(interaction, mockClient, db);
 
-    const embed = interaction.reply.mock.calls[0][0].embeds[0];
-    const coolField = embed.fields.find((f) => f.name === "Cool Person");
-    const controversialField = embed.fields.find(
+    const [attainmentEmbed, popularityEmbed] =
+      interaction.reply.mock.calls[0][0].embeds;
+    const attainmentCool = attainmentEmbed.fields.find(
+      (f) => f.name === "Cool Person",
+    );
+    const attainmentControversial = attainmentEmbed.fields.find(
+      (f) => f.name === "Controversial Person",
+    );
+    const popularityCool = popularityEmbed.fields.find(
+      (f) => f.name === "Cool Person",
+    );
+    const popularityControversial = popularityEmbed.fields.find(
       (f) => f.name === "Controversial Person",
     );
 
-    expect(coolField.value).toBe("1. **testuser** — 9\n2. **testuser** — 6");
-    expect(controversialField.value).toBe("1. **testuser** — 4");
+    expect(attainmentCool.value).toBe(
+      "1. **testuser** — 2 times\n2. **testuser** — 1 time",
+    );
+    expect(attainmentControversial.value).toBe("1. **testuser** — 1 time");
+    expect(popularityCool.value).toBe(
+      "1. **testuser** — 9 votes\n2. **testuser** — 6 votes",
+    );
+    expect(popularityControversial.value).toBe("1. **testuser** — 4 votes");
   });
 
   it("leaderboard shows a placeholder for roles with no data", async () => {
     const interaction = makeInteraction({ sub: "leaderboard" });
     await init(interaction, mockClient, db);
 
-    const embed = interaction.reply.mock.calls[0][0].embeds[0];
-    expect(embed.fields).toEqual([
+    const [attainmentEmbed, popularityEmbed] =
+      interaction.reply.mock.calls[0][0].embeds;
+    expect(attainmentEmbed.fields).toEqual([
+      { name: "Cool Person", value: "No data yet" },
+      { name: "Missing Role", value: expect.stringContaining("not found") },
+      { name: "Controversial Person", value: "No data yet" },
+    ]);
+    expect(popularityEmbed.fields).toEqual([
       { name: "Cool Person", value: "No data yet" },
       { name: "Missing Role", value: expect.stringContaining("not found") },
       { name: "Controversial Person", value: "No data yet" },

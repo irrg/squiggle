@@ -119,9 +119,10 @@ describe("TempRole model", () => {
     expect(results).toHaveLength(0);
   });
 
-  it("topByRole ranks members by summed maxReactionCount for that role, most first", async () => {
+  it("topByRole ranks byVotes and byAttainment independently, since a single big post and many small ones can produce different leaders", async () => {
     const t = new Date(Date.now() + 60 * 60 * 1000);
-    // member-1: 4 + 5 + 4 = 13, member-2: 6, member-3: 5 + 5 = 10
+    // member-1: 3 posts of 4 => 12 total. member-2: 1 post of 20 => 20
+    // total. member-3: 2 posts of 5 => 10 total.
     await db.create({
       ...base,
       memberId: "member-1",
@@ -134,7 +135,7 @@ describe("TempRole model", () => {
       memberId: "member-1",
       messageId: "msg-2",
       expirationTime: t,
-      maxReactionCount: 5,
+      maxReactionCount: 4,
     });
     await db.create({
       ...base,
@@ -148,7 +149,7 @@ describe("TempRole model", () => {
       memberId: "member-2",
       messageId: "msg-4",
       expirationTime: t,
-      maxReactionCount: 6,
+      maxReactionCount: 20,
     });
     await db.create({
       ...base,
@@ -165,12 +166,39 @@ describe("TempRole model", () => {
       maxReactionCount: 5,
     });
 
-    const top = await db.topByRole("guild-1", "role-1", 3);
+    const { byVotes, byAttainment } = await db.topByRole(
+      "guild-1",
+      "role-1",
+      3,
+    );
 
-    expect(top).toHaveLength(3);
-    expect(top[0]).toMatchObject({ memberId: "member-1", count: 13 });
-    expect(top[1]).toMatchObject({ memberId: "member-3", count: 10 });
-    expect(top[2]).toMatchObject({ memberId: "member-2", count: 6 });
+    expect(byVotes).toHaveLength(3);
+    expect(byVotes[0]).toMatchObject({
+      memberId: "member-2",
+      totalReactions: 20,
+    });
+    expect(byVotes[1]).toMatchObject({
+      memberId: "member-1",
+      totalReactions: 12,
+    });
+    expect(byVotes[2]).toMatchObject({
+      memberId: "member-3",
+      totalReactions: 10,
+    });
+
+    expect(byAttainment).toHaveLength(3);
+    expect(byAttainment[0]).toMatchObject({
+      memberId: "member-1",
+      postCount: 3,
+    });
+    expect(byAttainment[1]).toMatchObject({
+      memberId: "member-3",
+      postCount: 2,
+    });
+    expect(byAttainment[2]).toMatchObject({
+      memberId: "member-2",
+      postCount: 1,
+    });
   });
 
   it("topByRole respects the limit and only counts rows for that role", async () => {
@@ -205,10 +233,16 @@ describe("TempRole model", () => {
       maxReactionCount: 10,
     });
 
-    const top = await db.topByRole("guild-1", "role-1", 1);
+    const { byVotes, byAttainment } = await db.topByRole(
+      "guild-1",
+      "role-1",
+      1,
+    );
 
-    expect(top).toHaveLength(1);
-    expect(top[0].memberId).toBe("member-1");
+    expect(byVotes).toHaveLength(1);
+    expect(byVotes[0].memberId).toBe("member-1");
+    expect(byAttainment).toHaveLength(1);
+    expect(byAttainment[0].memberId).toBe("member-1");
   });
 
   it("hasLaterExpiration returns true when a later row exists", async () => {

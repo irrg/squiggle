@@ -37,7 +37,9 @@ const MONDAY_9AM_CENTRAL = new Date("2026-08-03T14:02:00.000Z");
 const MONDAY_10AM_CENTRAL = new Date("2026-08-03T15:00:00.000Z");
 const TUESDAY_9AM_CENTRAL = new Date("2026-08-04T14:02:00.000Z");
 
-const mockDb = { topByRole: vi.fn().mockResolvedValue([]) };
+const mockDb = {
+  topByRole: vi.fn().mockResolvedValue({ byAttainment: [], byVotes: [] }),
+};
 
 const makeChannel = (name = "general") => ({
   name,
@@ -78,7 +80,9 @@ beforeEach(async () => {
       combinedReactionRoles: [],
     },
   };
-  mockDb.topByRole.mockReset().mockResolvedValue([]);
+  mockDb.topByRole
+    .mockReset()
+    .mockResolvedValue({ byAttainment: [], byVotes: [] });
   ({ run } = await import("../../src/workers/weekly-leaderboard.js"));
 });
 
