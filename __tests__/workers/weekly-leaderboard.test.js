@@ -6,10 +6,15 @@ vi.mock("../../src/utils/sendDebugMessage.js", () => ({
 
 vi.mock("discord.js", () => ({
   EmbedBuilder: class {
-    setTitle() {
+    setTitle(title) {
+      this.title = title;
       return this;
     }
     setColor() {
+      return this;
+    }
+    setDescription(description) {
+      this.description = description;
       return this;
     }
     addFields(fields) {

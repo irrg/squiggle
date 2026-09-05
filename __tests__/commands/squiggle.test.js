@@ -5,10 +5,12 @@ vi.mock("../../config/config.json", () => ({
   default: {
     workers: {
       reactionRoles: [
-        { roleName: "Cool Person" },
+        { roleName: "Cool Person", emojiName: "😎" },
         { roleName: "Missing Role" },
       ],
-      combinedReactionRoles: [{ roleName: "Controversial Person" }],
+      combinedReactionRoles: [
+        { roleName: "Controversial Person", emojiNames: ["PogChamp"] },
+      ],
     },
   },
 }));
@@ -17,10 +19,15 @@ vi.mock("discord.js", () => ({
   PermissionFlagsBits: { Administrator: 8n },
   MessageFlags: { Ephemeral: 64 },
   EmbedBuilder: class {
-    setTitle() {
+    setTitle(title) {
+      this.title = title;
       return this;
     }
     setColor() {
+      return this;
+    }
+    setDescription(description) {
+      this.description = description;
       return this;
     }
     addFields(fields) {
@@ -74,6 +81,8 @@ const guildRoles = [
   { id: "combined-role-1", name: "Controversial Person" },
 ];
 
+const guildEmojis = [{ id: "999", name: "PogChamp" }];
+
 const makeInteraction = ({
   sub,
   member = makeMember(),
@@ -86,6 +95,9 @@ const makeInteraction = ({
     id: "guild-1",
     roles: {
       cache: { find: vi.fn((fn) => guildRoles.find(fn)) },
+    },
+    emojis: {
+      cache: { find: vi.fn((fn) => guildEmojis.find(fn)) },
     },
   },
   memberPermissions: { has: vi.fn().mockReturnValue(admin) },
@@ -231,46 +243,55 @@ describe("squiggle admin command", () => {
     const interaction = makeInteraction({ sub: "leaderboard" });
     await init(interaction, mockClient, db);
 
-    const [attainmentEmbed, popularityEmbed] =
-      interaction.reply.mock.calls[0][0].embeds;
-    const attainmentCool = attainmentEmbed.fields.find(
-      (f) => f.name === "Cool Person",
-    );
-    const attainmentControversial = attainmentEmbed.fields.find(
-      (f) => f.name === "Controversial Person",
-    );
-    const popularityCool = popularityEmbed.fields.find(
-      (f) => f.name === "Cool Person",
-    );
-    const popularityControversial = popularityEmbed.fields.find(
-      (f) => f.name === "Controversial Person",
+    const embeds = interaction.reply.mock.calls[0][0].embeds;
+    const coolEmbed = embeds.find((e) => e.title === "😎 Cool Person");
+    const controversialEmbed = embeds.find(
+      (e) => e.title === "<:PogChamp:999> Controversial Person",
     );
 
-    expect(attainmentCool.value).toBe(
-      "1. **testuser** — 2 times\n2. **testuser** — 1 time",
-    );
-    expect(attainmentControversial.value).toBe("1. **testuser** — 1 time");
-    expect(popularityCool.value).toBe(
-      "1. **testuser** — 9 votes\n2. **testuser** — 6 votes",
-    );
-    expect(popularityControversial.value).toBe("1. **testuser** — 4 votes");
+    expect(coolEmbed.fields).toEqual([
+      {
+        name: "🔥 Most Popular",
+        value: "1. **testuser** — 9 votes\n2. **testuser** — 6 votes",
+        inline: true,
+      },
+      {
+        name: "🎖️ Most Attained",
+        value: "1. **testuser** — 2 times\n2. **testuser** — 1 time",
+        inline: true,
+      },
+    ]);
+    expect(controversialEmbed.fields).toEqual([
+      {
+        name: "🔥 Most Popular",
+        value: "1. **testuser** — 4 votes",
+        inline: true,
+      },
+      {
+        name: "🎖️ Most Attained",
+        value: "1. **testuser** — 1 time",
+        inline: true,
+      },
+    ]);
   });
 
   it("leaderboard shows a placeholder for roles with no data", async () => {
     const interaction = makeInteraction({ sub: "leaderboard" });
     await init(interaction, mockClient, db);
 
-    const [attainmentEmbed, popularityEmbed] =
-      interaction.reply.mock.calls[0][0].embeds;
-    expect(attainmentEmbed.fields).toEqual([
-      { name: "Cool Person", value: "No data yet" },
-      { name: "Missing Role", value: expect.stringContaining("not found") },
-      { name: "Controversial Person", value: "No data yet" },
-    ]);
-    expect(popularityEmbed.fields).toEqual([
-      { name: "Cool Person", value: "No data yet" },
-      { name: "Missing Role", value: expect.stringContaining("not found") },
-      { name: "Controversial Person", value: "No data yet" },
+    const embeds = interaction.reply.mock.calls[0][0].embeds;
+    expect(embeds).toEqual([
+      { title: "😎 Cool Person", description: "No data yet", fields: [] },
+      {
+        title: "Missing Role",
+        description: expect.stringContaining("not found"),
+        fields: [],
+      },
+      {
+        title: "<:PogChamp:999> Controversial Person",
+        description: "No data yet",
+        fields: [],
+      },
     ]);
   });
 
@@ -278,8 +299,8 @@ describe("squiggle admin command", () => {
     const interaction = makeInteraction({ sub: "leaderboard" });
     await init(interaction, mockClient, db);
 
-    const embed = interaction.reply.mock.calls[0][0].embeds[0];
-    const missingField = embed.fields.find((f) => f.name === "Missing Role");
-    expect(missingField.value).toContain("not found");
+    const embeds = interaction.reply.mock.calls[0][0].embeds;
+    const missingEmbed = embeds.find((e) => e.title === "Missing Role");
+    expect(missingEmbed.description).toContain("not found");
   });
 });

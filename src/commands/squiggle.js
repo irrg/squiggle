@@ -1,7 +1,7 @@
 import { PermissionFlagsBits, EmbedBuilder, MessageFlags } from "discord.js";
 import { run as runWorker } from "../workers/temp-roles.js";
 import { TEMP_ROLE_DURATION_MS } from "../constants.js";
-import { buildLeaderboardFields } from "../utils/leaderboard.js";
+import { buildLeaderboardEmbeds } from "../utils/leaderboard.js";
 import config from "../../config/config.json" with { type: "json" };
 
 export const commandName = "squiggle";
@@ -155,29 +155,28 @@ export async function init(interaction, client, db) {
   }
 
   if (sub === "leaderboard") {
-    const { attainmentFields, popularityFields } = await buildLeaderboardFields(
+    const roleEmbeds = await buildLeaderboardEmbeds(
       config,
       interaction.guild,
       db,
     );
 
-    if (attainmentFields.length === 0) {
+    if (roleEmbeds.length === 0) {
       return interaction.reply({
         content: "No reaction roles configured for this server.",
         flags: MessageFlags.Ephemeral,
       });
     }
 
-    const attainmentEmbed = new EmbedBuilder()
-      .setTitle("Most Roles Earned")
-      .setColor("#5865F2")
-      .addFields(attainmentFields);
-    const popularityEmbed = new EmbedBuilder()
-      .setTitle("Most Popular")
-      .setColor("#5865F2")
-      .addFields(popularityFields);
     return interaction.reply({
-      embeds: [attainmentEmbed, popularityEmbed],
+      // Discord caps a single message at 10 embeds.
+      embeds: roleEmbeds.slice(0, 10).map((spec) =>
+        new EmbedBuilder()
+          .setTitle(spec.title)
+          .setColor("#5865F2")
+          .setDescription(spec.description ?? null)
+          .addFields(spec.fields ?? []),
+      ),
       flags: MessageFlags.Ephemeral,
     });
   }
