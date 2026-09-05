@@ -4,6 +4,15 @@ const roleNotFoundValue =
 const rankList = (entries, formatLine) =>
   entries.map((entry, i) => `${i + 1}. ${formatLine(entry)}`).join("\n");
 
+// Some members put their real name/pronouns in a trailing parenthetical
+// on their server nickname (e.g. "Veiled Fury (Manu, he/him)") — trimmed
+// here for a cleaner, more consistent leaderboard. Only the display name
+// is affected; the full nickname is still what's granted/credited
+// everywhere else. Falls back to the untrimmed name if stripping it
+// would leave nothing (e.g. a nickname that's only a parenthetical).
+const displayName = (memberName) =>
+  memberName.replace(/\s*\([^)]*\)\s*$/, "") || memberName;
+
 // A configured role's own emoji doubles as its leaderboard icon: a literal
 // unicode emoji (single reactionRoles) is used as-is, while a custom guild
 // emoji's name (combinedReactionRoles, or any config using server emoji)
@@ -66,12 +75,12 @@ export async function buildLeaderboardFields(config, guild, db) {
 
     const popularity = rankList(
       byVotes,
-      (t) => `**${t.memberName}** — ${t.totalReactions} votes`,
+      (t) => `**${displayName(t.memberName)}** — ${t.totalReactions} votes`,
     );
     const attainment = rankList(
       byAttainment,
       (t) =>
-        `**${t.memberName}** — ${t.postCount} time${t.postCount === 1 ? "" : "s"}`,
+        `**${displayName(t.memberName)}** — ${t.postCount} time${t.postCount === 1 ? "" : "s"}`,
     );
 
     // Zero-width space: Discord rejects an empty field value, and this
