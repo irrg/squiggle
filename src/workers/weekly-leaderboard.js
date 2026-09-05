@@ -2,7 +2,7 @@ import { EmbedBuilder } from "discord.js";
 import { formatInTimeZone } from "date-fns-tz";
 import sendDebugMessage from "../utils/sendDebugMessage.js";
 import formatError from "../utils/formatError.js";
-import { buildLeaderboardEmbeds } from "../utils/leaderboard.js";
+import { buildLeaderboardFields } from "../utils/leaderboard.js";
 import { CENTRAL_TIMEZONE } from "../constants.js";
 import config from "../../config/config.json" with { type: "json" };
 
@@ -43,19 +43,14 @@ const run = async (client, db) => {
       const channel = resolveLeaderboardChannel(guild, channelName);
       if (!channel) continue;
 
-      const roleEmbeds = await buildLeaderboardEmbeds(config, guild, db);
-      if (roleEmbeds.length === 0) continue;
+      const fields = await buildLeaderboardFields(config, guild, db);
+      if (fields.length === 0) continue;
 
-      await channel.send({
-        // Discord caps a single message at 10 embeds.
-        embeds: roleEmbeds.slice(0, 10).map((spec) =>
-          new EmbedBuilder()
-            .setTitle(spec.title)
-            .setColor("#5865F2")
-            .setDescription(spec.description ?? null)
-            .addFields(spec.fields ?? []),
-        ),
-      });
+      const embed = new EmbedBuilder()
+        .setTitle("Weekly Absolute Best")
+        .setColor("#5865F2")
+        .addFields(fields);
+      await channel.send({ embeds: [embed] });
     }
   } catch (error) {
     await sendDebugMessage(

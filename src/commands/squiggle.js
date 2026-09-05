@@ -1,7 +1,7 @@
 import { PermissionFlagsBits, EmbedBuilder, MessageFlags } from "discord.js";
 import { run as runWorker } from "../workers/temp-roles.js";
 import { TEMP_ROLE_DURATION_MS } from "../constants.js";
-import { buildLeaderboardEmbeds } from "../utils/leaderboard.js";
+import { buildLeaderboardFields } from "../utils/leaderboard.js";
 import config from "../../config/config.json" with { type: "json" };
 
 export const commandName = "squiggle";
@@ -155,28 +155,21 @@ export async function init(interaction, client, db) {
   }
 
   if (sub === "leaderboard") {
-    const roleEmbeds = await buildLeaderboardEmbeds(
-      config,
-      interaction.guild,
-      db,
-    );
+    const fields = await buildLeaderboardFields(config, interaction.guild, db);
 
-    if (roleEmbeds.length === 0) {
+    if (fields.length === 0) {
       return interaction.reply({
         content: "No reaction roles configured for this server.",
         flags: MessageFlags.Ephemeral,
       });
     }
 
+    const embed = new EmbedBuilder()
+      .setTitle("Absolute Best")
+      .setColor("#5865F2")
+      .addFields(fields);
     return interaction.reply({
-      // Discord caps a single message at 10 embeds.
-      embeds: roleEmbeds.slice(0, 10).map((spec) =>
-        new EmbedBuilder()
-          .setTitle(spec.title)
-          .setColor("#5865F2")
-          .setDescription(spec.description ?? null)
-          .addFields(spec.fields ?? []),
-      ),
+      embeds: [embed],
       flags: MessageFlags.Ephemeral,
     });
   }

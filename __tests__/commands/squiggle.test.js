@@ -243,13 +243,10 @@ describe("squiggle admin command", () => {
     const interaction = makeInteraction({ sub: "leaderboard" });
     await init(interaction, mockClient, db);
 
-    const embeds = interaction.reply.mock.calls[0][0].embeds;
-    const coolEmbed = embeds.find((e) => e.title.startsWith("😎 Cool Person"));
-    const controversialEmbed = embeds.find((e) =>
-      e.title.startsWith("<:PogChamp:999> Controversial Person"),
-    );
+    const embed = interaction.reply.mock.calls[0][0].embeds[0];
 
-    expect(coolEmbed.fields).toEqual([
+    expect(embed.fields).toEqual([
+      { name: "😎 Cool Person", value: "​" },
       {
         name: "🔥 Most Popular",
         value: "1. **testuser** — 9 votes\n2. **testuser** — 6 votes",
@@ -260,8 +257,8 @@ describe("squiggle admin command", () => {
         value: "1. **testuser** — 2 times\n2. **testuser** — 1 time",
         inline: true,
       },
-    ]);
-    expect(controversialEmbed.fields).toEqual([
+      { name: "Missing Role", value: expect.stringContaining("not found") },
+      { name: "<:PogChamp:999> Controversial Person", value: "​" },
       {
         name: "🔥 Most Popular",
         value: "1. **testuser** — 4 votes",
@@ -279,21 +276,11 @@ describe("squiggle admin command", () => {
     const interaction = makeInteraction({ sub: "leaderboard" });
     await init(interaction, mockClient, db);
 
-    const embeds = interaction.reply.mock.calls[0][0].embeds;
-    expect(
-      embeds.map((e) => ({ ...e, title: e.title.replace(/⠀+$/, "") })),
-    ).toEqual([
-      { title: "😎 Cool Person", description: "No data yet", fields: [] },
-      {
-        title: "Missing Role",
-        description: expect.stringContaining("not found"),
-        fields: [],
-      },
-      {
-        title: "<:PogChamp:999> Controversial Person",
-        description: "No data yet",
-        fields: [],
-      },
+    const embed = interaction.reply.mock.calls[0][0].embeds[0];
+    expect(embed.fields).toEqual([
+      { name: "😎 Cool Person", value: "No data yet" },
+      { name: "Missing Role", value: expect.stringContaining("not found") },
+      { name: "<:PogChamp:999> Controversial Person", value: "No data yet" },
     ]);
   });
 
@@ -301,8 +288,8 @@ describe("squiggle admin command", () => {
     const interaction = makeInteraction({ sub: "leaderboard" });
     await init(interaction, mockClient, db);
 
-    const embeds = interaction.reply.mock.calls[0][0].embeds;
-    const missingEmbed = embeds.find((e) => e.title.startsWith("Missing Role"));
-    expect(missingEmbed.description).toContain("not found");
+    const embed = interaction.reply.mock.calls[0][0].embeds[0];
+    const missingField = embed.fields.find((f) => f.name === "Missing Role");
+    expect(missingField.value).toContain("not found");
   });
 });
