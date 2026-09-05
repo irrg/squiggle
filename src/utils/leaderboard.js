@@ -11,6 +11,16 @@ const rankList = (entries, formatLine) =>
 // of raw text.
 const isCustomEmojiName = (name) => /^\w+$/.test(name);
 
+// Discord sizes an embed card to its widest line of content, so a role
+// with short names/counts renders a visibly narrower card than one with
+// long ones. U+2800 (Braille Pattern Blank) is invisible like a space but
+// — unlike a real space — has real glyph width, so padding every title
+// with a run of them nudges every card up to Discord's max render width
+// regardless of how little data it actually holds, making them all the
+// same size. The count below is a guess, not a measured pixel target;
+// if cards still don't match in the real client, adjust it up or down.
+const WIDTH_PAD = "⠀".repeat(40);
+
 function resolveIcon(emojiName, guild) {
   if (!emojiName) return null;
   if (!isCustomEmojiName(emojiName)) return emojiName;
@@ -44,7 +54,7 @@ export async function buildLeaderboardEmbeds(config, guild, db) {
 
   for (const [roleName, entry] of roleEntries) {
     const icon = resolveIcon(entry.emojiName ?? entry.emojiNames?.[0], guild);
-    const title = icon ? `${icon} ${roleName}` : roleName;
+    const title = `${icon ? `${icon} ${roleName}` : roleName}${WIDTH_PAD}`;
 
     const role = guild.roles.cache.find((r) => r.name === roleName);
     if (!role) {

@@ -244,9 +244,9 @@ describe("squiggle admin command", () => {
     await init(interaction, mockClient, db);
 
     const embeds = interaction.reply.mock.calls[0][0].embeds;
-    const coolEmbed = embeds.find((e) => e.title === "😎 Cool Person");
-    const controversialEmbed = embeds.find(
-      (e) => e.title === "<:PogChamp:999> Controversial Person",
+    const coolEmbed = embeds.find((e) => e.title.startsWith("😎 Cool Person"));
+    const controversialEmbed = embeds.find((e) =>
+      e.title.startsWith("<:PogChamp:999> Controversial Person"),
     );
 
     expect(coolEmbed.fields).toEqual([
@@ -280,7 +280,9 @@ describe("squiggle admin command", () => {
     await init(interaction, mockClient, db);
 
     const embeds = interaction.reply.mock.calls[0][0].embeds;
-    expect(embeds).toEqual([
+    expect(
+      embeds.map((e) => ({ ...e, title: e.title.replace(/⠀+$/, "") })),
+    ).toEqual([
       { title: "😎 Cool Person", description: "No data yet", fields: [] },
       {
         title: "Missing Role",
@@ -300,7 +302,7 @@ describe("squiggle admin command", () => {
     await init(interaction, mockClient, db);
 
     const embeds = interaction.reply.mock.calls[0][0].embeds;
-    const missingEmbed = embeds.find((e) => e.title === "Missing Role");
+    const missingEmbed = embeds.find((e) => e.title.startsWith("Missing Role"));
     expect(missingEmbed.description).toContain("not found");
   });
 });
