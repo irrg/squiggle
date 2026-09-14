@@ -60,6 +60,14 @@ export async function buildLeaderboardFields(config, guild, db) {
     const icon = resolveIcon(entry.emojiName ?? entry.emojiNames?.[0], guild);
     const header = icon ? `${icon} ${roleName}` : roleName;
 
+    // Zero-width space: Discord rejects an empty field value, and the
+    // header field below needs one just to force the line break before
+    // its content. That forced-blank value sits *after* the title with
+    // nothing matching it *before* — this spacer mirrors it so the gap on
+    // both sides of a title is the same size, instead of the title
+    // reading like it belongs to the block above it.
+    fields.push({ name: "​", value: "​" });
+
     const role = guild.roles.cache.find((r) => r.name === roleName);
     if (!role) {
       fields.push({ name: header, value: roleNotFoundValue });
@@ -83,9 +91,6 @@ export async function buildLeaderboardFields(config, guild, db) {
         `**${displayName(t.memberName)}** — ${t.postCount} time${t.postCount === 1 ? "" : "s"}`,
     );
 
-    // Zero-width space: Discord rejects an empty field value, and this
-    // header field only exists to force the line break before the two
-    // inline fields below it.
     fields.push(
       { name: header, value: "​" },
       { name: "🔥 Most Popular", value: popularity, inline: true },

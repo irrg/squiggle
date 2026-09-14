@@ -81,11 +81,21 @@ const createDB = async (filePath) => {
     }
     const entries = [...counts.values()];
     return {
+      // Ties on one ranking's own metric fall back to the other ranking's
+      // metric instead of whatever order they happened to land in the
+      // Map, so e.g. four members tied at 1 "time" aren't ordered
+      // arbitrarily when one of them clearly had more votes behind it.
       byVotes: [...entries]
-        .sort((a, b) => b.totalReactions - a.totalReactions)
+        .sort(
+          (a, b) =>
+            b.totalReactions - a.totalReactions || b.postCount - a.postCount,
+        )
         .slice(0, limit),
       byAttainment: [...entries]
-        .sort((a, b) => b.postCount - a.postCount)
+        .sort(
+          (a, b) =>
+            b.postCount - a.postCount || b.totalReactions - a.totalReactions,
+        )
         .slice(0, limit),
     };
   };

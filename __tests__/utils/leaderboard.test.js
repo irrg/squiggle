@@ -54,4 +54,14 @@ describe("buildLeaderboardFields", () => {
       "1. **(nickname only)** — 30 votes",
     );
   });
+
+  it("puts a matching blank spacer field before every role's header", async () => {
+    const db = makeDb("testuser");
+
+    const fields = await buildLeaderboardFields(config, makeGuild(), db);
+
+    expect(fields[0]).toEqual({ name: "​", value: "​" });
+    expect(fields[1].name).toBe("Cool Person");
+    expect(fields[1].value).toBe("​");
+  });
 });

@@ -246,6 +246,7 @@ describe("squiggle admin command", () => {
     const embed = interaction.reply.mock.calls[0][0].embeds[0];
 
     expect(embed.fields).toEqual([
+      { name: "​", value: "​" },
       { name: "😎 Cool Person", value: "​" },
       {
         name: "🔥 Most Popular",
@@ -257,7 +258,9 @@ describe("squiggle admin command", () => {
         value: "1. **testuser** — 2 times\n2. **testuser** — 1 time",
         inline: true,
       },
+      { name: "​", value: "​" },
       { name: "Missing Role", value: expect.stringContaining("not found") },
+      { name: "​", value: "​" },
       { name: "<:PogChamp:999> Controversial Person", value: "​" },
       {
         name: "🔥 Most Popular",
@@ -278,8 +281,11 @@ describe("squiggle admin command", () => {
 
     const embed = interaction.reply.mock.calls[0][0].embeds[0];
     expect(embed.fields).toEqual([
+      { name: "​", value: "​" },
       { name: "😎 Cool Person", value: "No data yet" },
+      { name: "​", value: "​" },
       { name: "Missing Role", value: expect.stringContaining("not found") },
+      { name: "​", value: "​" },
       { name: "<:PogChamp:999> Controversial Person", value: "No data yet" },
     ]);
   });

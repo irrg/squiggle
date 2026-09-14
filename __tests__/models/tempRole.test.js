@@ -245,6 +245,41 @@ describe("TempRole model", () => {
     expect(byAttainment[0].memberId).toBe("member-1");
   });
 
+  it("topByRole breaks ties on one ranking using the other ranking's metric", async () => {
+    const t = new Date(Date.now() + 60 * 60 * 1000);
+    // Everyone tied at 1 post each — byAttainment ties should fall back
+    // to totalReactions (member-2 > member-3 > member-1).
+    await db.create({
+      ...base,
+      memberId: "member-1",
+      messageId: "msg-1",
+      expirationTime: t,
+      maxReactionCount: 4,
+    });
+    await db.create({
+      ...base,
+      memberId: "member-2",
+      messageId: "msg-2",
+      expirationTime: t,
+      maxReactionCount: 6,
+    });
+    await db.create({
+      ...base,
+      memberId: "member-3",
+      messageId: "msg-3",
+      expirationTime: t,
+      maxReactionCount: 5,
+    });
+
+    const { byAttainment } = await db.topByRole("guild-1", "role-1", 3);
+
+    expect(byAttainment.map((e) => e.memberId)).toEqual([
+      "member-2",
+      "member-3",
+      "member-1",
+    ]);
+  });
+
   it("hasLaterExpiration returns true when a later row exists", async () => {
     const earlier = new Date(Date.now() - 60 * 60 * 1000);
     const later = new Date(Date.now() + 60 * 60 * 1000);
