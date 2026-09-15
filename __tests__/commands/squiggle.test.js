@@ -99,6 +99,10 @@ const makeInteraction = ({
     emojis: {
       cache: { find: vi.fn((fn) => guildEmojis.find(fn)) },
     },
+    members: {
+      cache: { get: vi.fn(() => undefined) },
+      fetch: vi.fn().mockRejectedValue(new Error("not in guild")),
+    },
   },
   memberPermissions: { has: vi.fn().mockReturnValue(admin) },
   options: {

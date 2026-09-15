@@ -8,10 +8,16 @@ const config = {
   },
 };
 
-const makeGuild = () => ({
+const makeGuild = ({ member } = {}) => ({
   id: "guild-1",
   roles: { cache: { find: vi.fn(() => ({ id: "role-1" })) } },
   emojis: { cache: { find: vi.fn(() => undefined) } },
+  members: {
+    // No member param: simulates someone who's since left the server —
+    // cache miss, fetch fails, callers fall back to the stored name.
+    cache: { get: vi.fn(() => member) },
+    fetch: vi.fn().mockRejectedValue(new Error("not in guild")),
+  },
 });
 
 const makeDb = (memberName) => ({
@@ -63,5 +69,29 @@ describe("buildLeaderboardFields", () => {
     expect(fields[0]).toEqual({ name: "​", value: "​" });
     expect(fields[1].name).toBe("Cool Person");
     expect(fields[1].value).toBe("​");
+  });
+
+  it("resolves the member's current nickname live instead of the stored snapshot", async () => {
+    const db = makeDb("Old Stale Nickname");
+    const guild = makeGuild({
+      member: { nickname: "New Nickname", user: { username: "globalhandle" } },
+    });
+
+    const fields = await buildLeaderboardFields(config, guild, db);
+
+    expect(fields.find((f) => f.name === "🔥 Most Popular").value).toBe(
+      "1. **New Nickname** — 30 votes",
+    );
+  });
+
+  it("falls back to the stored name when the member can no longer be looked up", async () => {
+    const db = makeDb("Last Known Name");
+    const guild = makeGuild(); // no member: cache miss + failed fetch
+
+    const fields = await buildLeaderboardFields(config, guild, db);
+
+    expect(fields.find((f) => f.name === "🔥 Most Popular").value).toBe(
+      "1. **Last Known Name** — 30 votes",
+    );
   });
 });

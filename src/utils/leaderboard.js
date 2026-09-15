@@ -27,6 +27,19 @@ function resolveIcon(emojiName, guild) {
   return emoji ? `<:${emoji.name}:${emoji.id}>` : null;
 }
 
+// A TempRole row's memberName is a snapshot from whenever that row was
+// created — extending a role never updates it, so it goes stale the
+// moment someone changes their nickname without earning/extending that
+// role again. Resolving live from the guild keeps the leaderboard
+// current; the stored name is only a fallback for a member who's since
+// left the server (fetch fails) and can no longer be looked up at all.
+async function resolveMemberName(guild, memberId, fallbackName) {
+  const member =
+    guild.members.cache.get(memberId) ??
+    (await guild.members.fetch(memberId).catch(() => null));
+  return member ? member.nickname || member.user.username : fallbackName;
+}
+
 // Builds the fields for one shared leaderboard embed. Discord sizes an
 // embed to its widest line of content, so giving each role its own embed
 // left short-data roles rendering as visibly narrower cards than
@@ -81,14 +94,31 @@ export async function buildLeaderboardFields(config, guild, db) {
       continue;
     }
 
+    // Resolved once per unique member (not per list) since the top
+    // scorer typically appears in both rankings.
+    const uniqueMembers = new Map();
+    for (const t of [...byVotes, ...byAttainment]) {
+      if (!uniqueMembers.has(t.memberId)) {
+        uniqueMembers.set(t.memberId, t.memberName);
+      }
+    }
+    const resolvedNames = new Map(
+      await Promise.all(
+        [...uniqueMembers].map(async ([memberId, fallbackName]) => [
+          memberId,
+          displayName(await resolveMemberName(guild, memberId, fallbackName)),
+        ]),
+      ),
+    );
+
     const popularity = rankList(
       byVotes,
-      (t) => `**${displayName(t.memberName)}** — ${t.totalReactions} votes`,
+      (t) => `**${resolvedNames.get(t.memberId)}** — ${t.totalReactions} votes`,
     );
     const attainment = rankList(
       byAttainment,
       (t) =>
-        `**${displayName(t.memberName)}** — ${t.postCount} time${t.postCount === 1 ? "" : "s"}`,
+        `**${resolvedNames.get(t.memberId)}** — ${t.postCount} time${t.postCount === 1 ? "" : "s"}`,
     );
 
     fields.push(
