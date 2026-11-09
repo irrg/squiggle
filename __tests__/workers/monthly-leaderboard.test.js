@@ -37,10 +37,14 @@ vi.mock("../../config/config.json", () => ({
   },
 }));
 
-// A known Monday 09:02 America/Chicago instant (2026-08-03 is a Monday).
-const MONDAY_9AM_CENTRAL = new Date("2026-08-03T14:02:00.000Z");
-const MONDAY_10AM_CENTRAL = new Date("2026-08-03T15:00:00.000Z");
-const TUESDAY_9AM_CENTRAL = new Date("2026-08-04T14:02:00.000Z");
+// Known 09:02 America/Chicago instants. September/October are CDT (UTC-5),
+// January is CST (UTC-6) — the offsets differ on purpose, so a month
+// boundary built by subtracting a fixed offset would fail these.
+const SEP_1_9AM_CENTRAL = new Date("2026-09-01T14:02:00.000Z");
+const SEP_1_10AM_CENTRAL = new Date("2026-09-01T15:00:00.000Z");
+const SEP_2_9AM_CENTRAL = new Date("2026-09-02T14:02:00.000Z");
+const OCT_1_9AM_CENTRAL = new Date("2026-10-01T14:02:00.000Z");
+const JAN_1_9AM_CENTRAL = new Date("2027-01-01T15:02:00.000Z");
 
 const mockDb = {
   topByRole: vi.fn().mockResolvedValue({ byAttainment: [], byVotes: [] }),
@@ -75,6 +79,7 @@ const makeClient = (guilds) => ({
 });
 
 let run;
+let reportingWindows;
 
 beforeEach(async () => {
   vi.resetModules();
@@ -88,16 +93,17 @@ beforeEach(async () => {
   mockDb.topByRole
     .mockReset()
     .mockResolvedValue({ byAttainment: [], byVotes: [] });
-  ({ run } = await import("../../src/workers/weekly-leaderboard.js"));
+  ({ run, reportingWindows } =
+    await import("../../src/workers/monthly-leaderboard.js"));
 });
 
 afterEach(() => {
   vi.useRealTimers();
 });
 
-describe("weekly-leaderboard worker", () => {
-  it("does nothing outside Monday 9am Central", async () => {
-    vi.setSystemTime(TUESDAY_9AM_CENTRAL);
+describe("monthly-leaderboard worker", () => {
+  it("does nothing on a day that isn't the 1st", async () => {
+    vi.setSystemTime(SEP_2_9AM_CENTRAL);
 
     const systemChannel = makeChannel();
     const client = makeClient([makeGuild({ systemChannel })]);
@@ -106,8 +112,8 @@ describe("weekly-leaderboard worker", () => {
     expect(systemChannel.send).not.toHaveBeenCalled();
   });
 
-  it("does nothing outside the 9:00-9:05 window on Monday", async () => {
-    vi.setSystemTime(MONDAY_10AM_CENTRAL);
+  it("does nothing outside the 9:00-9:05 window on the 1st", async () => {
+    vi.setSystemTime(SEP_1_10AM_CENTRAL);
 
     const systemChannel = makeChannel();
     const client = makeClient([makeGuild({ systemChannel })]);
@@ -117,7 +123,7 @@ describe("weekly-leaderboard worker", () => {
   });
 
   it("posts to the guild's system channel by default", async () => {
-    vi.setSystemTime(MONDAY_9AM_CENTRAL);
+    vi.setSystemTime(SEP_1_9AM_CENTRAL);
 
     const systemChannel = makeChannel("totally-renamed-channel");
     const client = makeClient([makeGuild({ systemChannel })]);
@@ -130,7 +136,7 @@ describe("weekly-leaderboard worker", () => {
   });
 
   it("falls back to a channel literally named 'general' when there's no system channel", async () => {
-    vi.setSystemTime(MONDAY_9AM_CENTRAL);
+    vi.setSystemTime(SEP_1_9AM_CENTRAL);
 
     const general = makeChannel("general");
     const client = makeClient([
@@ -142,7 +148,7 @@ describe("weekly-leaderboard worker", () => {
   });
 
   it("skips a guild with no system channel and no 'general' channel", async () => {
-    vi.setSystemTime(MONDAY_9AM_CENTRAL);
+    vi.setSystemTime(SEP_1_9AM_CENTRAL);
 
     const client = makeClient([
       makeGuild({ systemChannel: null, namedChannels: [] }),
@@ -152,7 +158,7 @@ describe("weekly-leaderboard worker", () => {
 
   it("uses workers.leaderboardChannel as an override when configured", async () => {
     mockConfig.workers.leaderboardChannel = "announcements";
-    vi.setSystemTime(MONDAY_9AM_CENTRAL);
+    vi.setSystemTime(SEP_1_9AM_CENTRAL);
 
     const systemChannel = makeChannel("general");
     const announcements = makeChannel("announcements");
@@ -165,31 +171,83 @@ describe("weekly-leaderboard worker", () => {
     expect(systemChannel.send).not.toHaveBeenCalled();
   });
 
-  it("does not double-post within the same Monday window", async () => {
-    vi.setSystemTime(MONDAY_9AM_CENTRAL);
+  it("does not double-post within the same window", async () => {
+    vi.setSystemTime(SEP_1_9AM_CENTRAL);
     const systemChannel = makeChannel();
     const client = makeClient([makeGuild({ systemChannel })]);
 
     await run(client, mockDb);
-    vi.setSystemTime(new Date(MONDAY_9AM_CENTRAL.getTime() + 60 * 1000));
+    vi.setSystemTime(new Date(SEP_1_9AM_CENTRAL.getTime() + 60 * 1000));
     await run(client, mockDb);
 
     expect(systemChannel.send).toHaveBeenCalledTimes(1);
   });
 
-  it("posts again the following Monday", async () => {
-    vi.setSystemTime(MONDAY_9AM_CENTRAL);
+  it("posts again the following month", async () => {
+    vi.setSystemTime(SEP_1_9AM_CENTRAL);
+    const systemChannel = makeChannel();
+    const client = makeClient([makeGuild({ systemChannel })]);
+
+    await run(client, mockDb);
+    vi.setSystemTime(OCT_1_9AM_CENTRAL);
+    await run(client, mockDb);
+
+    expect(systemChannel.send).toHaveBeenCalledTimes(2);
+  });
+
+  it("queries the month just ended and year-to-date, not all time", async () => {
+    vi.setSystemTime(SEP_1_9AM_CENTRAL);
     const systemChannel = makeChannel();
     const client = makeClient([makeGuild({ systemChannel })]);
 
     await run(client, mockDb);
 
-    const nextMonday = new Date(
-      MONDAY_9AM_CENTRAL.getTime() + 7 * 24 * 60 * 60 * 1000,
-    );
-    vi.setSystemTime(nextMonday);
-    await run(client, mockDb);
+    const windows = mockDb.topByRole.mock.calls.map((call) => call[3]);
+    expect(windows).toEqual([
+      {
+        label: "August 2026",
+        since: new Date("2026-08-01T05:00:00.000Z"),
+        until: new Date("2026-09-01T05:00:00.000Z"),
+      },
+      {
+        label: "Year to Date",
+        since: new Date("2026-01-01T06:00:00.000Z"),
+        until: new Date("2026-09-01T05:00:00.000Z"),
+      },
+    ]);
+  });
+});
 
-    expect(systemChannel.send).toHaveBeenCalledTimes(2);
+describe("reportingWindows", () => {
+  it("reports the previous month, anchoring year-to-date to that month's year", () => {
+    const { title, isYearEnd, windows } = reportingWindows(SEP_1_9AM_CENTRAL);
+
+    expect(title).toBe("Monthly Absolute Best");
+    expect(isYearEnd).toBe(false);
+    expect(windows[0].label).toBe("August 2026");
+    expect(windows[1].label).toBe("Year to Date");
+    expect(windows[1].since).toEqual(new Date("2026-01-01T06:00:00.000Z"));
+  });
+
+  // The whole reason the monthly cadence replaced the Monday one: the
+  // January post's year window is the completed prior year, so the
+  // year-end callout needs a label and nothing else. Anchoring to `now`
+  // instead would report the nine hours of the new year elapsed by 9am.
+  it("covers the full prior year on January 1st rather than the new one", () => {
+    const { title, isYearEnd, windows } = reportingWindows(JAN_1_9AM_CENTRAL);
+
+    expect(title).toBe("Absolute Best — 2026 in Review");
+    expect(isYearEnd).toBe(true);
+
+    expect(windows[0]).toEqual({
+      label: "December 2026",
+      since: new Date("2026-12-01T06:00:00.000Z"),
+      until: new Date("2027-01-01T06:00:00.000Z"),
+    });
+    expect(windows[1]).toEqual({
+      label: "Best of 2026",
+      since: new Date("2026-01-01T06:00:00.000Z"),
+      until: new Date("2027-01-01T06:00:00.000Z"),
+    });
   });
 });

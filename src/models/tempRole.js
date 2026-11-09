@@ -8,6 +8,7 @@ const createDB = async (filePath) => {
 
   await ds.ensureIndexAsync({ fieldName: "messageId" });
   await ds.ensureIndexAsync({ fieldName: "expirationTime" });
+  await ds.ensureIndexAsync({ fieldName: "createdAt" });
   await ds.ensureIndexAsync({
     fieldName: "_id",
     unique: true,
@@ -18,6 +19,8 @@ const createDB = async (filePath) => {
     const { _id, ...rest } = doc;
     return { ...rest, id: _id, expirationTime: new Date(doc.expirationTime) };
   };
+
+  const toMs = (value) => (value instanceof Date ? value.getTime() : value);
 
   const makeId = (guildId, memberId, roleId, messageId) =>
     `${guildId}:${memberId}:${roleId}:${messageId}`;
@@ -64,8 +67,22 @@ const createDB = async (filePath) => {
     return docs.map(toRow);
   };
 
-  const topByRole = async (guildId, roleId, limit = 3) => {
-    const docs = await ds.findAsync({ guildId, roleId });
+  // `window` bounds the query by createdAt — {since, until} as Dates or ms,
+  // either edge optional. Omitting it entirely keeps the all-time behavior
+  // /squiggle leaderboard wants. createdAt (not updatedAt) is the right
+  // anchor: a row's whole life is ~16h plus 4h per new high-water reaction
+  // and `extend` refuses a spent row, so a row can't still be accruing
+  // votes a window later. Spent rows stay counted — a role that has since
+  // expired was still earned.
+  const topByRole = async (guildId, roleId, limit = 3, window = {}) => {
+    const { since, until } = window;
+    const query = { guildId, roleId };
+    if (since != null || until != null) {
+      query.createdAt = {};
+      if (since != null) query.createdAt.$gte = toMs(since);
+      if (until != null) query.createdAt.$lt = toMs(until);
+    }
+    const docs = await ds.findAsync(query);
     const counts = new Map();
     for (const doc of docs) {
       const entry = counts.get(doc.memberId) ?? {
@@ -121,10 +138,7 @@ const createDB = async (filePath) => {
     maxReactionCount = 0,
   }) => {
     const now = Date.now();
-    const expirationMs =
-      expirationTime instanceof Date
-        ? expirationTime.getTime()
-        : expirationTime;
+    const expirationMs = toMs(expirationTime);
     const _id = makeId(guildId, memberId, roleId, messageId);
     try {
       const doc = await ds.insertAsync({
@@ -153,10 +167,7 @@ const createDB = async (filePath) => {
   };
 
   const extend = async (id, expirationTime, maxReactionCount) => {
-    const expirationMs =
-      expirationTime instanceof Date
-        ? expirationTime.getTime()
-        : expirationTime;
+    const expirationMs = toMs(expirationTime);
     const now = Date.now();
     await ds.updateAsync(
       { _id: id },

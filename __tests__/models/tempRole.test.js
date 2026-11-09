@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import createDB from "../../src/models/tempRole.js";
 
 const base = {
@@ -404,5 +404,125 @@ describe("TempRole model", () => {
     );
     expect(updated.maxReactionCount).toBe(5);
     expect(updated.expirationTime.getTime()).toBeGreaterThan(initial.getTime());
+  });
+
+  describe("topByRole windowing", () => {
+    // createdAt comes from Date.now() inside create(), so the clock is
+    // what places a row inside or outside a window.
+    const createAt = async (when, overrides) => {
+      vi.setSystemTime(when);
+      await db.create({
+        ...base,
+        expirationTime: new Date(when.getTime() + 60 * 60 * 1000),
+        ...overrides,
+      });
+    };
+
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("counts only rows created inside the window", async () => {
+      await createAt(new Date("2026-07-15T12:00:00.000Z"), {
+        memberId: "before",
+        messageId: "msg-before",
+        maxReactionCount: 50,
+      });
+      await createAt(new Date("2026-08-15T12:00:00.000Z"), {
+        memberId: "inside",
+        messageId: "msg-inside",
+        maxReactionCount: 7,
+      });
+      await createAt(new Date("2026-09-15T12:00:00.000Z"), {
+        memberId: "after",
+        messageId: "msg-after",
+        maxReactionCount: 90,
+      });
+
+      const { byVotes } = await db.topByRole("guild-1", "role-1", 3, {
+        since: new Date("2026-08-01T05:00:00.000Z"),
+        until: new Date("2026-09-01T05:00:00.000Z"),
+      });
+
+      expect(byVotes).toEqual([
+        expect.objectContaining({ memberId: "inside", totalReactions: 7 }),
+      ]);
+    });
+
+    it("treats the window as half-open so adjacent months can't double-count a row", async () => {
+      const boundary = new Date("2026-09-01T05:00:00.000Z");
+      await createAt(boundary, {
+        memberId: "boundary",
+        messageId: "msg-boundary",
+        maxReactionCount: 4,
+      });
+
+      const august = await db.topByRole("guild-1", "role-1", 3, {
+        since: new Date("2026-08-01T05:00:00.000Z"),
+        until: boundary,
+      });
+      const september = await db.topByRole("guild-1", "role-1", 3, {
+        since: boundary,
+        until: new Date("2026-10-01T05:00:00.000Z"),
+      });
+
+      expect(august.byVotes).toHaveLength(0);
+      expect(september.byVotes).toHaveLength(1);
+    });
+
+    it("accepts raw millisecond bounds as well as Dates", async () => {
+      await createAt(new Date("2026-08-15T12:00:00.000Z"), {
+        memberId: "inside",
+        messageId: "msg-inside",
+        maxReactionCount: 7,
+      });
+
+      const { byVotes } = await db.topByRole("guild-1", "role-1", 3, {
+        since: new Date("2026-08-01T05:00:00.000Z").getTime(),
+        until: new Date("2026-09-01T05:00:00.000Z").getTime(),
+      });
+
+      expect(byVotes).toHaveLength(1);
+    });
+
+    it("still counts a row whose role has since expired and been marked spent", async () => {
+      await createAt(new Date("2026-08-15T12:00:00.000Z"), {
+        memberId: "expired",
+        messageId: "msg-expired",
+        maxReactionCount: 11,
+      });
+      const row = await db.findByMessageId("msg-expired");
+      await db.markSpent(row.id);
+
+      const { byVotes } = await db.topByRole("guild-1", "role-1", 3, {
+        since: new Date("2026-08-01T05:00:00.000Z"),
+        until: new Date("2026-09-01T05:00:00.000Z"),
+      });
+
+      expect(byVotes).toEqual([
+        expect.objectContaining({ memberId: "expired", totalReactions: 11 }),
+      ]);
+    });
+
+    it("counts everything when no window is passed", async () => {
+      await createAt(new Date("2026-07-15T12:00:00.000Z"), {
+        memberId: "member-1",
+        messageId: "msg-old",
+        maxReactionCount: 3,
+      });
+      await createAt(new Date("2026-09-15T12:00:00.000Z"), {
+        memberId: "member-1",
+        messageId: "msg-new",
+        maxReactionCount: 4,
+      });
+
+      const { byVotes } = await db.topByRole("guild-1", "role-1", 3);
+
+      expect(byVotes[0]).toMatchObject({ totalReactions: 7, postCount: 2 });
+    });
   });
 });
