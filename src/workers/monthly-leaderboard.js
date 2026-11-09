@@ -36,6 +36,14 @@ const centralMonthStart = (year, month) =>
     CENTRAL_TIMEZONE,
   );
 
+const centralParts = (now) => ({
+  year: Number(formatInTimeZone(now, CENTRAL_TIMEZONE, "yyyy")),
+  month: Number(formatInTimeZone(now, CENTRAL_TIMEZONE, "MM")),
+});
+
+const monthName = (instant) =>
+  formatInTimeZone(instant, CENTRAL_TIMEZONE, "MMMM");
+
 // Posting on the 1st means reporting the month that just ended, so every
 // window is anchored to *that* month rather than to now. It matters most
 // on January 1st: "year to date" there has to mean the year that just
@@ -44,8 +52,7 @@ const centralMonthStart = (year, month) =>
 // January post's second window is already the complete prior year, so it
 // only needs a different label.
 function reportingWindows(now) {
-  const nowYear = Number(formatInTimeZone(now, CENTRAL_TIMEZONE, "yyyy"));
-  const nowMonth = Number(formatInTimeZone(now, CENTRAL_TIMEZONE, "MM"));
+  const { year: nowYear, month: nowMonth } = centralParts(now);
 
   const isJanuary = nowMonth === 1;
   const year = isJanuary ? nowYear - 1 : nowYear;
@@ -55,19 +62,60 @@ function reportingWindows(now) {
   const periodEnd = centralMonthStart(nowYear, nowMonth);
   const yearStart = centralMonthStart(year, 1);
 
-  const monthLabel = formatInTimeZone(periodStart, CENTRAL_TIMEZONE, "MMMM");
-
   return {
     isYearEnd: isJanuary,
     title: isJanuary
       ? `Absolute Best — ${year} in Review`
       : "Monthly Absolute Best",
     windows: [
-      { label: `${monthLabel} ${year}`, since: periodStart, until: periodEnd },
+      {
+        label: `${monthName(periodStart)} ${year}`,
+        since: periodStart,
+        until: periodEnd,
+      },
       {
         label: isJanuary ? `Best of ${year}` : "Year to Date",
         since: yearStart,
         until: periodEnd,
+      },
+    ],
+  };
+}
+
+// What the post would say if it fired right now, for /squiggle preview.
+// Deliberately *not* reportingWindows(now): that reports the last closed
+// month, which on any day but the 1st is a window the next real post
+// won't use. A preview is more useful run against the period still in
+// progress, so both windows run up to this moment and every label says
+// "so far" — a preview that looked identical to the real post would be
+// the easy thing to misread as one.
+//
+// The year-end variant previews the January post's shape before January
+// exists, so it pairs the month in progress with the running year under
+// the wrap-up title rather than waiting for December to close.
+function previewWindows(now, { yearEnd = false } = {}) {
+  const { year, month } = centralParts(now);
+  const monthStart = centralMonthStart(year, month);
+  const yearStart = centralMonthStart(year, 1);
+
+  // No upper bound, rather than `until: now`. The real post needs its
+  // half-open upper edge so two adjacent months can't both claim a row on
+  // the boundary, but a preview has no neighbor to collide with, and an
+  // exclusive `until: now` would drop a role earned in the same
+  // millisecond the command ran.
+  return {
+    isYearEnd: yearEnd,
+    title: yearEnd
+      ? `Absolute Best — ${year} in Review (preview)`
+      : "Monthly Absolute Best (preview)",
+    windows: [
+      {
+        label: `${monthName(monthStart)} ${year} (so far)`,
+        since: monthStart,
+      },
+      {
+        label: yearEnd ? `Best of ${year} (so far)` : "Year to Date",
+        since: yearStart,
       },
     ],
   };
@@ -112,4 +160,4 @@ const run = async (client, db) => {
 
 const interval = 60 * 1000;
 
-export { run, interval, reportingWindows };
+export { run, interval, reportingWindows, previewWindows };

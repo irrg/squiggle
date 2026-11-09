@@ -1,5 +1,6 @@
 import { PermissionFlagsBits, EmbedBuilder, MessageFlags } from "discord.js";
 import { run as runWorker } from "../workers/temp-roles.js";
+import { previewWindows } from "../workers/monthly-leaderboard.js";
 import { TEMP_ROLE_DURATION_MS } from "../constants.js";
 import { buildLeaderboardFields } from "../utils/leaderboard.js";
 import config from "../../config/config.json" with { type: "json" };
@@ -40,6 +41,23 @@ export const options = [
     name: "leaderboard",
     type: 1,
     description: "Show the top 3 members for each reaction role",
+  },
+  {
+    name: "preview",
+    type: 1,
+    description: "Preview the monthly leaderboard post, visible only to you",
+    options: [
+      {
+        name: "period",
+        type: 3,
+        description: "Which post to preview (defaults to the monthly one)",
+        required: false,
+        choices: [
+          { name: "monthly", value: "monthly" },
+          { name: "year-end", value: "year-end" },
+        ],
+      },
+    ],
   },
 ];
 
@@ -152,6 +170,37 @@ export async function init(interaction, client, db) {
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
     await runWorker(client, db);
     return interaction.editReply({ content: "Worker ran." });
+  }
+
+  // Renders exactly what the monthly worker would post, through the same
+  // builder and windows, but ephemerally and against the period still in
+  // progress — so the upcoming post (and the year-end variant, months
+  // before January) can be read before it goes out publicly.
+  if (sub === "preview") {
+    const yearEnd = interaction.options.getString("period") === "year-end";
+    const { title, windows } = previewWindows(new Date(), { yearEnd });
+    const fields = await buildLeaderboardFields(
+      config,
+      interaction.guild,
+      db,
+      windows,
+    );
+
+    if (fields.length === 0) {
+      return interaction.reply({
+        content: "No reaction roles configured for this server.",
+        flags: MessageFlags.Ephemeral,
+      });
+    }
+
+    const embed = new EmbedBuilder()
+      .setTitle(title)
+      .setColor("#5865F2")
+      .addFields(fields);
+    return interaction.reply({
+      embeds: [embed],
+      flags: MessageFlags.Ephemeral,
+    });
   }
 
   if (sub === "leaderboard") {

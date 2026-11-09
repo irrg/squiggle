@@ -80,6 +80,7 @@ const makeClient = (guilds) => ({
 
 let run;
 let reportingWindows;
+let previewWindows;
 
 beforeEach(async () => {
   vi.resetModules();
@@ -93,7 +94,7 @@ beforeEach(async () => {
   mockDb.topByRole
     .mockReset()
     .mockResolvedValue({ byAttainment: [], byVotes: [] });
-  ({ run, reportingWindows } =
+  ({ run, reportingWindows, previewWindows } =
     await import("../../src/workers/monthly-leaderboard.js"));
 });
 
@@ -249,5 +250,55 @@ describe("reportingWindows", () => {
       since: new Date("2026-01-01T06:00:00.000Z"),
       until: new Date("2027-01-01T06:00:00.000Z"),
     });
+  });
+});
+
+describe("previewWindows", () => {
+  // Mid-November: the last closed month is October, but a preview of the
+  // *upcoming* post should show November in progress instead.
+  const MID_NOVEMBER = new Date("2026-11-09T18:00:00.000Z");
+
+  it("covers the month in progress rather than the last closed one", () => {
+    const { title, isYearEnd, windows } = previewWindows(MID_NOVEMBER);
+
+    expect(title).toBe("Monthly Absolute Best (preview)");
+    expect(isYearEnd).toBe(false);
+    expect(windows[0]).toEqual({
+      label: "November 2026 (so far)",
+      since: new Date("2026-11-01T05:00:00.000Z"),
+    });
+    expect(windows[1]).toEqual({
+      label: "Year to Date",
+      since: new Date("2026-01-01T06:00:00.000Z"),
+    });
+  });
+
+  it("previews the year-end wrap-up before the year is over", () => {
+    const { title, isYearEnd, windows } = previewWindows(MID_NOVEMBER, {
+      yearEnd: true,
+    });
+
+    expect(title).toBe("Absolute Best — 2026 in Review (preview)");
+    expect(isYearEnd).toBe(true);
+    expect(windows[1].label).toBe("Best of 2026 (so far)");
+  });
+
+  // An exclusive upper edge would silently drop a role earned in the same
+  // millisecond the command ran; the real post needs one, a preview doesn't.
+  it("leaves the upper edge open so nothing earned just now is dropped", () => {
+    const { windows } = previewWindows(MID_NOVEMBER);
+
+    for (const window of windows) {
+      expect(window.until).toBeUndefined();
+    }
+  });
+
+  it("marks every label as provisional so a preview can't read as the real post", () => {
+    const preview = previewWindows(MID_NOVEMBER, { yearEnd: true });
+    const real = reportingWindows(new Date("2027-01-01T15:02:00.000Z"));
+
+    expect(preview.title).toContain("(preview)");
+    expect(real.title).not.toContain("(preview)");
+    expect(real.windows.every((w) => !w.label.includes("so far"))).toBe(true);
   });
 });

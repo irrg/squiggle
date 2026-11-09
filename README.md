@@ -16,7 +16,8 @@ Tailored to one server's specific vibe — but the mechanics are general enough 
 - **Auto-expiry** — all roles expire after 16 hours; a worker cleans them up automatically
 - **Retired, not deleted** — however a role's record stops being active (natural expiry, superseded by a later grant of the same role, revoked because reactions dropped, or manually expired via `/squiggle expire`), the record is marked spent rather than removed. That message is permanently retired for that role — later reactions on it can't trigger a "new" besting/worsting — and the history still counts toward `/squiggle leaderboard`
 - `/squiggle leaderboard` — top 3 members per configured reaction role, open to everyone
-- `/squiggle` — admin commands: list active temp roles, manually expire a role, manually grant a role, or trigger the worker on demand (Administrator permission required)
+- `/squiggle` — admin commands: list active temp roles, manually expire a role, manually grant a role, trigger the worker on demand, or preview the monthly post (Administrator permission required)
+- `/squiggle preview` — admin-only ephemeral preview of the monthly post as it would read right now, covering the month in progress instead of the last closed one. `period: year-end` previews the January wrap-up's shape months before January. Every label is marked "(so far)" / "(preview)" so it can't be mistaken for the real post
 - **Monthly leaderboard post** — posted publicly on the 1st of each month at 9am Central, in each guild's system channel by default (or `workers.leaderboardChannel` if set). Each ranking shows two windows stacked together: the month that just ended, and year-to-date. The January post reports December alongside the completed prior year, retitled as that year's wrap-up — so the year-end callout is the same post with different labels, not a separate job
 
 ## Requirements

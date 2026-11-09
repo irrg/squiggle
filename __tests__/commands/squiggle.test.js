@@ -88,6 +88,7 @@ const makeInteraction = ({
   member = makeMember(),
   role = makeRole(),
   admin = true,
+  period = null,
 } = {}) => ({
   id: "interaction-1",
   guildId: "guild-1",
@@ -109,6 +110,7 @@ const makeInteraction = ({
     getSubcommand: vi.fn().mockReturnValue(sub),
     getMember: vi.fn().mockReturnValue(member),
     getRole: vi.fn().mockReturnValue(role),
+    getString: vi.fn().mockReturnValue(period),
   },
   reply: vi.fn().mockResolvedValue(undefined),
   deferReply: vi.fn().mockResolvedValue(undefined),
@@ -301,5 +303,81 @@ describe("squiggle admin command", () => {
     const embed = interaction.reply.mock.calls[0][0].embeds[0];
     const missingField = embed.fields.find((f) => f.name === "Missing Role");
     expect(missingField.value).toContain("not found");
+  });
+});
+
+describe("squiggle preview", () => {
+  const seedAugustAndNow = async () => {
+    vi.setSystemTime(new Date("2026-08-15T12:00:00.000Z"));
+    await db.create({
+      ...base,
+      messageId: "msg-august",
+      expirationTime: new Date("2026-08-15T18:00:00.000Z"),
+      maxReactionCount: 4,
+    });
+    vi.setSystemTime(new Date("2026-11-09T18:00:00.000Z"));
+    await db.create({
+      ...base,
+      memberId: "member-2",
+      messageId: "msg-november",
+      expirationTime: new Date("2026-11-10T06:00:00.000Z"),
+      maxReactionCount: 9,
+    });
+  };
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("is admin-only and replies only to the caller", async () => {
+    vi.setSystemTime(new Date("2026-11-09T18:00:00.000Z"));
+    const denied = makeInteraction({ sub: "preview", admin: false });
+    await init(denied, mockClient, db);
+    expect(denied.reply).toHaveBeenCalledWith(
+      expect.objectContaining({ content: "Admin only.", flags: 64 }),
+    );
+
+    const allowed = makeInteraction({ sub: "preview" });
+    await init(allowed, mockClient, db);
+    expect(allowed.reply).toHaveBeenCalledWith(
+      expect.objectContaining({ flags: 64 }),
+    );
+  });
+
+  it("previews the month in progress alongside year-to-date", async () => {
+    await seedAugustAndNow();
+
+    const interaction = makeInteraction({ sub: "preview" });
+    await init(interaction, mockClient, db);
+
+    const embed = interaction.reply.mock.calls[0][0].embeds[0];
+    expect(embed.title).toBe("Monthly Absolute Best (preview)");
+
+    const popular = embed.fields.find((f) => f.name === "🔥 Most Popular");
+    // November's window excludes the August row; the year's includes both.
+    expect(popular.value).toBe(
+      "**November 2026 (so far)**\n1. **testuser** — 9 votes\n\n" +
+        "**Year to Date**\n1. **testuser** — 9 votes\n2. **testuser** — 4 votes",
+    );
+  });
+
+  it("previews the year-end wrap-up months before January", async () => {
+    await seedAugustAndNow();
+
+    const interaction = makeInteraction({
+      sub: "preview",
+      period: "year-end",
+    });
+    await init(interaction, mockClient, db);
+
+    const embed = interaction.reply.mock.calls[0][0].embeds[0];
+    expect(embed.title).toBe("Absolute Best — 2026 in Review (preview)");
+    expect(
+      embed.fields.find((f) => f.name === "🔥 Most Popular").value,
+    ).toContain("**Best of 2026 (so far)**");
   });
 });
